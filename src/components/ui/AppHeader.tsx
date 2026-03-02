@@ -1,5 +1,5 @@
 import { Hypb, logoutPB, useAuthContext } from '@hydevs/hypb';
-import { ActionIcon, AppShell, Avatar, Button, Group, Tooltip, Menu, Text, Title } from '@mantine/core';
+import { ActionIcon, AppShell, Avatar, Button, Group, Tooltip, Menu, Text, Title, useMatches } from '@mantine/core';
 import { IconArrowLeft, IconChevronDown, IconFileExport, IconSettings, IconUserCircle } from '@tabler/icons-react';
 import React, { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
@@ -30,12 +30,17 @@ export const AppHeader: React.FC = () => {
 
     const onOpenSettings = () => setSettingsOpen(true);
 
+    const isPhone = useMatches({
+        base: true,
+        sm: false,
+    });
+
     return (
         <>
             <AppShell.Header px="md">
                 <Group justify="space-between" align="center" style={{ height: '100%' }}>
                     <Group gap="md">
-                        <Title order={3} style={{ cursor: 'pointer' }} onClick={() => navigate('/')}>
+                        <Title visibleFrom="md" order={3} style={{ cursor: 'pointer' }} onClick={() => navigate('/')}>
                             Realm Architect
                         </Title>
                     </Group>
@@ -44,7 +49,7 @@ export const AppHeader: React.FC = () => {
                         {pathname === '/' && (
                             <>
                                 {userData?.role === 'admin' && (
-                                    <Button component={NavLink} to="/assets" variant="outline" size="sm">
+                                    <Button visibleFrom="sm" component={NavLink} to="/assets" variant="outline" size="sm">
                                         Manage assets
                                     </Button>
                                 )}
@@ -97,29 +102,31 @@ export const AppHeader: React.FC = () => {
                             </Group>
                         )}
 
-                        {userData && (
-                            <Menu shadow="md" width={200} position="bottom-end">
-                                <Menu.Target>
-                                    <Button
-                                        variant="default"
-                                        rightSection={<IconChevronDown />}
-                                        leftSection={
-                                            <Avatar size={20} radius="xl" color={mainColor}>
-                                                <IconUserCircle />
-                                            </Avatar>
-                                        }
-                                    >
-                                        {userData?.name || userData?.email}
-                                    </Button>
-                                </Menu.Target>
-                                <Menu.Dropdown>
-                                    <Menu.Label>{userData?.email}</Menu.Label>
-                                    <Menu.Item color="red" onClick={onLogout}>
-                                        Sign out
-                                    </Menu.Item>
-                                </Menu.Dropdown>
-                            </Menu>
-                        )}
+                        {userData &&
+                            (pathname.startsWith('/map') && isPhone ? null : (
+                                <Menu shadow="md" width={200} position="bottom-end">
+                                    <Menu.Target>
+                                        <Button
+                                            variant="default"
+                                            size="xs"
+                                            rightSection={<IconChevronDown />}
+                                            leftSection={
+                                                <Avatar size={20} radius="xl" color={mainColor}>
+                                                    <IconUserCircle />
+                                                </Avatar>
+                                            }
+                                        >
+                                            {userData?.name || userData?.email}
+                                        </Button>
+                                    </Menu.Target>
+                                    <Menu.Dropdown>
+                                        <Menu.Label>{userData?.email}</Menu.Label>
+                                        <Menu.Item color="red" onClick={onLogout}>
+                                            Sign out
+                                        </Menu.Item>
+                                    </Menu.Dropdown>
+                                </Menu>
+                            ))}
                     </Group>
                 </Group>
             </AppShell.Header>

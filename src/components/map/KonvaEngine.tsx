@@ -1314,9 +1314,101 @@ export const KonvaEngine: React.FC = () => {
             }
         };
 
+        let lastTouchDist = 0;
+        let lastTouchMidX = 0;
+        let lastTouchMidY = 0;
+
+        const getTouchDist = (t0: Touch, t1: Touch) => Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+
+        const onTouchStart = (e: TouchEvent) => {
+            if (e.touches.length === 1) {
+                e.preventDefault();
+                panning = true;
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+                startStageX = stageRef.current?.x() ?? 0;
+                startStageY = stageRef.current?.y() ?? 0;
+            } else if (e.touches.length === 2) {
+                e.preventDefault();
+                panning = false;
+                lastTouchDist = getTouchDist(e.touches[0], e.touches[1]);
+                lastTouchMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                lastTouchMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            }
+        };
+
+        const onTouchMove = (e: TouchEvent) => {
+            if (e.touches.length === 1 && panning) {
+                e.preventDefault();
+                const dx = e.touches[0].clientX - startX;
+                const dy = e.touches[0].clientY - startY;
+                setStagePos({ x: startStageX + dx, y: startStageY + dy });
+            } else if (e.touches.length === 2) {
+                e.preventDefault();
+                const stage = stageRef.current;
+                if (!stage) return;
+
+                const newDist = getTouchDist(e.touches[0], e.touches[1]);
+                const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+
+                if (lastTouchDist === 0) {
+                    lastTouchDist = newDist;
+                    lastTouchMidX = midX;
+                    lastTouchMidY = midY;
+                    return;
+                }
+
+                const oldScale = stage.scaleX();
+                const scaleRatio = newDist / lastTouchDist;
+                const newScale = Math.max(0.05, Math.min(20, oldScale * scaleRatio));
+
+                // Zoom towards the midpoint between the two fingers
+                const stageBox = stage.container().getBoundingClientRect();
+                const pointerX = midX - stageBox.left;
+                const pointerY = midY - stageBox.top;
+                const mousePointTo = {
+                    x: (pointerX - stage.x()) / oldScale,
+                    y: (pointerY - stage.y()) / oldScale,
+                };
+
+                // Also pan by mid-point delta
+                const panDx = midX - lastTouchMidX;
+                const panDy = midY - lastTouchMidY;
+
+                setStageScale(newScale);
+                setStagePos({
+                    x: pointerX - mousePointTo.x * newScale + panDx,
+                    y: pointerY - mousePointTo.y * newScale + panDy,
+                });
+
+                lastTouchDist = newDist;
+                lastTouchMidX = midX;
+                lastTouchMidY = midY;
+            }
+        };
+
+        const onTouchEnd = (e: TouchEvent) => {
+            if (e.touches.length === 0) {
+                panning = false;
+                lastTouchDist = 0;
+            } else if (e.touches.length === 1) {
+                lastTouchDist = 0;
+                panning = true;
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+                startStageX = stageRef.current?.x() ?? 0;
+                startStageY = stageRef.current?.y() ?? 0;
+            }
+        };
+        // ─────────────────────────────────────────────────────────────────────
+
         container.addEventListener('mousedown', onMouseDown, { capture: true });
         window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('mouseup', onMouseUp);
+        container.addEventListener('touchstart', onTouchStart, { passive: false });
+        container.addEventListener('touchmove', onTouchMove, { passive: false });
+        container.addEventListener('touchend', onTouchEnd, { passive: false });
 
         return () => {
             container.removeEventListener('mousedown', onMouseDown, {
@@ -1324,6 +1416,9 @@ export const KonvaEngine: React.FC = () => {
             });
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
+            container.removeEventListener('touchstart', onTouchStart);
+            container.removeEventListener('touchmove', onTouchMove);
+            container.removeEventListener('touchend', onTouchEnd);
         };
     }, []);
 
