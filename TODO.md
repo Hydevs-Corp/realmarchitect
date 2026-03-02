@@ -1,4 +1,4 @@
-1. Global history / undo‑redo
+1. Global history / undo‑redo [DONE]
    Undo currently only applies to drawing. Extend to all modifications (POIs, zones, lines, groups) with a full stack.
 
 2. Export & import
