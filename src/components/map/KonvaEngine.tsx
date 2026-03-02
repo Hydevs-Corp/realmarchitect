@@ -1317,15 +1317,21 @@ export const KonvaEngine: React.FC = () => {
         let lastTouchDist = 0;
         let lastTouchMidX = 0;
         let lastTouchMidY = 0;
+        // Track finger-down position to detect tap vs. pan (threshold = 10px)
+        let touchOriginX = 0;
+        let touchOriginY = 0;
+        const PAN_THRESHOLD = 10;
 
         const getTouchDist = (t0: Touch, t1: Touch) => Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
 
         const onTouchStart = (e: TouchEvent) => {
             if (e.touches.length === 1) {
-                e.preventDefault();
-                panning = true;
-                startX = e.touches[0].clientX;
-                startY = e.touches[0].clientY;
+                // Do NOT call preventDefault here — let Konva receive the tap
+                panning = false;
+                touchOriginX = e.touches[0].clientX;
+                touchOriginY = e.touches[0].clientY;
+                startX = touchOriginX;
+                startY = touchOriginY;
                 startStageX = stageRef.current?.x() ?? 0;
                 startStageY = stageRef.current?.y() ?? 0;
             } else if (e.touches.length === 2) {
@@ -1338,7 +1344,12 @@ export const KonvaEngine: React.FC = () => {
         };
 
         const onTouchMove = (e: TouchEvent) => {
-            if (e.touches.length === 1 && panning) {
+            if (e.touches.length === 1) {
+                const movedX = e.touches[0].clientX - touchOriginX;
+                const movedY = e.touches[0].clientY - touchOriginY;
+                // Only activate panning once the finger has moved beyond the threshold
+                if (!panning && Math.hypot(movedX, movedY) < PAN_THRESHOLD) return;
+                panning = true;
                 e.preventDefault();
                 const dx = e.touches[0].clientX - startX;
                 const dy = e.touches[0].clientY - startY;
@@ -1392,16 +1403,20 @@ export const KonvaEngine: React.FC = () => {
             if (e.touches.length === 0) {
                 panning = false;
                 lastTouchDist = 0;
+                touchOriginX = 0;
+                touchOriginY = 0;
             } else if (e.touches.length === 1) {
+                // One finger lifted from a two-finger gesture — reset for possible pan
                 lastTouchDist = 0;
-                panning = true;
-                startX = e.touches[0].clientX;
-                startY = e.touches[0].clientY;
+                panning = false;
+                touchOriginX = e.touches[0].clientX;
+                touchOriginY = e.touches[0].clientY;
+                startX = touchOriginX;
+                startY = touchOriginY;
                 startStageX = stageRef.current?.x() ?? 0;
                 startStageY = stageRef.current?.y() ?? 0;
             }
         };
-        // ─────────────────────────────────────────────────────────────────────
 
         container.addEventListener('mousedown', onMouseDown, { capture: true });
         window.addEventListener('mousemove', onMouseMove);
