@@ -106,7 +106,7 @@ export async function fetchMapElements(mapId: string) {
         fontSize: r.font_size,
         bgColor: r.bg_color,
         width: r.width,
-        author: (r as any).author ?? undefined,
+        author: r.author ?? undefined,
         authorName: r.expand?.author?.name ?? undefined,
     }));
 
@@ -130,6 +130,7 @@ export async function fetchMapElements(mapId: string) {
         height: r.height,
         rotation: r.rotation ?? 0,
         lockAspectRatio: r.lock_aspect_ratio ?? false,
+        assetId: r.asset_id || undefined,
     }));
 
     let lines: MapLine[] = [];
@@ -210,9 +211,9 @@ export async function createNote(note: Omit<TextNote, 'id'>): Promise<TextNote> 
         bg_color: note.bgColor ?? '#fff9c4ff',
         ...(note.width !== undefined ? { width: note.width } : {}),
     };
-    if ((note as any).author) data.author = (note as any).author;
+    if (note.author) data.author = note.author;
     const record = await pb.collection('dnc_worldmap_notes').create<DncWorldmapNoteRecord>(data);
-    const authorName = (note as any).author ? (Hypb.pb.authStore.record?.id === (note as any).author ? (Hypb.pb.authStore.record as any)?.name : undefined) : undefined;
+    const authorName = note.author ? (Hypb.pb.authStore.record?.id === note.author ? Hypb.pb.authStore.record?.name : undefined) : undefined;
     return { ...note, id: record.id, authorName } as TextNote;
 }
 
@@ -380,7 +381,7 @@ export async function updateNote(id: string, updates: Partial<TextNote>): Promis
     if (updates.fontSize !== undefined) data.font_size = updates.fontSize;
     if (updates.bgColor !== undefined) data.bg_color = updates.bgColor;
     if ('width' in updates) data.width = updates.width ?? null;
-    if ('author' in updates) data.author = (updates as any).author ?? null;
+    if ('author' in updates) data.author = updates.author ?? null;
     if (updates.hidden !== undefined) data.hidden = updates.hidden;
     if (updates.locked !== undefined) data.locked = updates.locked;
     if (updates.pinned !== undefined) data.pinned = updates.pinned;
@@ -483,6 +484,109 @@ export async function deleteLine(id: string): Promise<void> {
     await pb.collection('dnc_worldmap_lines').delete(id);
 }
 
+export async function recreatePOI(poi: POI): Promise<void> {
+    const pb = Hypb.pb;
+    await pb.collection('dnc_worldmap_pois').create({
+        id: poi.id,
+        map_id: poi.mapId,
+        x: poi.x,
+        y: poi.y,
+        z_index: poi.zIndex,
+        type: poi.type,
+        name: poi.name,
+        description: poi.description ?? '',
+        size: poi.size ?? 10,
+        hidden: poi.hidden ?? false,
+        locked: poi.locked ?? false,
+        pinned: poi.pinned ?? false,
+    });
+}
+
+export async function recreateZone(zone: Zone): Promise<void> {
+    const pb = Hypb.pb;
+    await pb.collection('dnc_worldmap_zones').create({
+        id: zone.id,
+        map_id: zone.mapId,
+        z_index: zone.zIndex,
+        name: zone.name,
+        description: zone.description ?? '',
+        points: zone.points,
+        color: zone.color,
+        pattern: zone.pattern ?? '',
+        hidden: zone.hidden ?? false,
+        locked: zone.locked ?? false,
+        pinned: zone.pinned ?? false,
+    });
+}
+
+export async function recreateNote(note: TextNote): Promise<void> {
+    const pb = Hypb.pb;
+    const data: Record<string, unknown> = {
+        id: note.id,
+        map_id: note.mapId,
+        x: note.x,
+        y: note.y,
+        z_index: note.zIndex,
+        content: note.content,
+        font_size: note.fontSize ?? 14,
+        bg_color: note.bgColor ?? '#fff9c4ff',
+        hidden: note.hidden ?? false,
+        locked: note.locked ?? false,
+        pinned: note.pinned ?? false,
+    };
+    if (note.width !== undefined) data.width = note.width;
+    if (note.author) data.author = note.author;
+    await pb.collection('dnc_worldmap_notes').create(data);
+}
+
+export async function recreateLine(line: MapLine): Promise<void> {
+    const pb = Hypb.pb;
+    const data: Record<string, unknown> = {
+        id: line.id,
+        map_id: line.mapId,
+        x: line.x,
+        y: line.y,
+        z_index: line.zIndex,
+        bx: line.bx,
+        by: line.by,
+        color: line.color,
+        stroke_width: line.strokeWidth ?? 2,
+        dash_pattern: line.dashPattern ?? 'solid',
+        hidden: line.hidden ?? false,
+        locked: line.locked ?? false,
+        pinned: line.pinned ?? false,
+    };
+    if (line.name) data.name = line.name;
+    if (line.cx !== undefined) data.cx = line.cx;
+    if (line.cy !== undefined) data.cy = line.cy;
+    if (line.aAttachedId) data.a_attached_id = line.aAttachedId;
+    if (line.aAttachedKind) data.a_attached_kind = line.aAttachedKind;
+    if (line.bAttachedId) data.b_attached_id = line.bAttachedId;
+    if (line.bAttachedKind) data.b_attached_kind = line.bAttachedKind;
+    await pb.collection('dnc_worldmap_lines').create(data);
+}
+
+export async function recreateBackground(bg: Background): Promise<void> {
+    const pb = Hypb.pb;
+    const data: Record<string, unknown> = {
+        id: bg.id,
+        map_id: bg.mapId,
+        x: bg.x,
+        y: bg.y,
+        z_index: bg.zIndex,
+        width: bg.width,
+        height: bg.height,
+        rotation: bg.rotation ?? 0,
+        lock_aspect_ratio: bg.lockAspectRatio ?? false,
+        hidden: bg.hidden ?? false,
+        locked: bg.locked ?? false,
+        pinned: bg.pinned ?? false,
+    };
+    if (bg.name) data.name = bg.name;
+    if (bg.assetId) data.asset_id = bg.assetId;
+    await pb.collection('dnc_worldmap_image').create(data);
+}
+
 export async function fetchDrawingStrokes(mapId: string): Promise<DrawStroke[]> {
     const pb = Hypb.pb;
     try {
@@ -524,7 +628,9 @@ export async function clearMapDrawingStrokes(mapId: string): Promise<void> {
     try {
         const list = await pb.collection('dnc_worldmap_drawing_strokes').getFullList({ filter: `map_id = "${mapId}"` });
         await Promise.all(list.map((r) => pb.collection('dnc_worldmap_drawing_strokes').delete(r.id)));
-    } catch {}
+    } catch (e) {
+        console.error(e);
+    }
 }
 
 export async function fetchGroups(mapId: string): Promise<MapGroup[]> {
@@ -586,15 +692,15 @@ export async function fetchMapMembers(mapId: string): Promise<MapMember[]> {
     const pb = Hypb.pb;
     const list = await pb.collection('dnc_worldmap_members').getFullList<DncWorldmapMemberRecord>({
         filter: `map_id = "${mapId}"`,
-        expand: 'user_id',
+        expand: 'user',
     });
     return list.map((r) => ({
         id: r.id,
         mapId: r.map_id,
-        userId: r.user_id,
         role: r.role,
-        email: r.expand?.user_id?.email ?? r.user_id,
-        name: r.expand?.user_id?.name,
+        user: r.user,
+        email: r.expand?.user?.email ?? r.user,
+        name: r.expand?.user?.name ?? r.user,
     }));
 }
 
@@ -602,7 +708,7 @@ export async function addMapMember(mapId: string, userId: string, role: 'owner' 
     const pb = Hypb.pb;
     await pb.collection('dnc_worldmap_members').create({
         map_id: mapId,
-        user_id: userId,
+        user: userId,
         role,
     });
 }
@@ -625,7 +731,7 @@ export async function transferOwnership(mapId: string, newOwnerId: string, curre
 export async function checkMembership(mapId: string, userId: string): Promise<boolean> {
     const pb = Hypb.pb;
     try {
-        const result = await pb.collection('dnc_worldmap_members').getFirstListItem<DncWorldmapMemberRecord>(`map_id = "${mapId}" && user_id = "${userId}"`);
+        const result = await pb.collection('dnc_worldmap_members').getFirstListItem<DncWorldmapMemberRecord>(`map_id = "${mapId}" && user = "${userId}"`);
         return !!result;
     } catch {
         return false;

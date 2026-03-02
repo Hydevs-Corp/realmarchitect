@@ -45,3 +45,26 @@ We are developing a React interactive 2D map application for a game universe. Th
 ## PocketBase Schema
 
 - Any modification to the database schema (adding/removing/modifying collections or fields) MUST be reflected in the `pb_schema.json` file at the project root. After changing the schema in code or TypeScript types, update `pb_schema.json` and import it into the PocketBase admin to keep development and production environments synchronized.
+
+## Global Undo / Redo History (CRITICAL)
+
+The store (`useMapStore`) maintains a local undo/redo stack (`undoStack`/`redoStack`, max 100 entries, cleared on map exit).
+
+**Every store action that mutates map data MUST push a `HistoryEntry` to the stack.**  The entry captures `{ before: HistorySnapshot, after: HistorySnapshot }` for the affected collection(s) only.
+
+Rules that MUST be followed in every future modification:
+
+1. **Public mutating actions** (`addPoi`, `updateZone`, `deleteLine`, `addGroup`, `toggleElementHidden`, etc.) must:
+   - Compute the new state first (as a local variable).
+   - Create a `HistoryEntry` with `before` = current snapshot, `after` = new snapshot.
+   - Return `{ ...newState, undoStack: pushHistory(state.undoStack, entry), redoStack: [] }`.
+
+2. **Remote/realtime actions** (prefixed `_remote*`) must NOT push to the history stack.  They exist specifically to apply changes made by other users without affecting the local undo history.
+
+3. **`undo()` / `redo()`** apply the corresponding snapshot to local state AND call `syncHistoryDiff()` to keep PocketBase in sync (recreate/update/delete as needed).
+
+4. **Adding a new element type or mutation** means:
+   - Add the collection to `HistorySnapshot` in `types/map.ts` if not already there.
+   - Add a `recreate*` function in `api.ts` (PB create with known id).
+   - Wire the new collection into `syncHistoryDiff` in `useMapStore.ts`.
+   - Add `_remote*` variants so realtime updates bypass history.

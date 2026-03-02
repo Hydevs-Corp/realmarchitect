@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { isPointInPolygon } from '../lib/geometry';
-import type { POI, Zone, TextNote, Background, MapLine, MapData, MapGroup, ElementType, DrawStroke, DrawingLayerState } from '../types/map';
+import type { POI, Zone, TextNote, Background, MapLine, MapData, MapGroup, ElementType, DrawStroke, DrawingLayerState, HistoryEntry, HistorySnapshot } from '../types/map';
 
 function genId(): string {
     return Array.from({ length: 15 }, () => 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]).join('');
@@ -21,7 +21,72 @@ import {
     updateNote as apiUpdateNote,
     updateBackground as apiUpdateBackground,
     updateLine as apiUpdateLine,
+    deletePOI as apiDeletePOI,
+    deleteZone as apiDeleteZone,
+    deleteNote as apiDeleteNote,
+    deleteBackground as apiDeleteBackground,
+    deleteLine as apiDeleteLine,
+    recreatePOI as apiRecreatePOI,
+    recreateZone as apiRecreateZone,
+    recreateNote as apiRecreateNote,
+    recreateBackground as apiRecreateBackground,
+    recreateLine as apiRecreateLine,
 } from '../lib/api';
+
+const MAX_HISTORY = 100;
+
+function pushHistory(stack: HistoryEntry[], entry: HistoryEntry): HistoryEntry[] {
+    const next = [...stack, entry];
+    return next.length > MAX_HISTORY ? next.slice(next.length - MAX_HISTORY) : next;
+}
+
+async function syncHistoryDiff(mapId: string, from: HistorySnapshot, to: HistorySnapshot): Promise<void> {
+    const ops: Promise<unknown>[] = [];
+
+    function diff<T extends { id: string }>(
+        fromArr: T[] | undefined,
+        toArr: T[] | undefined,
+        create: (item: T) => Promise<unknown>,
+        update: (item: T) => Promise<unknown>,
+        del: (id: string) => Promise<unknown>
+    ) {
+        if (fromArr === undefined && toArr === undefined) return;
+        const f = fromArr ?? [];
+        const t = toArr ?? [];
+        const fMap = new Map(f.map((x) => [x.id, x]));
+        const tMap = new Map(t.map((x) => [x.id, x]));
+        for (const item of t) {
+            const fItem = fMap.get(item.id);
+            if (!fItem) ops.push(create(item));
+            else if (JSON.stringify(fItem) !== JSON.stringify(item)) ops.push(update(item));
+        }
+        for (const item of f) {
+            if (!tMap.has(item.id)) ops.push(del(item.id));
+        }
+    }
+
+    diff(from.pois, to.pois, apiRecreatePOI, (p) => apiUpdatePOI(p.id, p), apiDeletePOI);
+    diff(from.zones, to.zones, apiRecreateZone, (z) => apiUpdateZone(z.id, z), apiDeleteZone);
+    diff(from.notes, to.notes, apiRecreateNote, (n) => apiUpdateNote(n.id, n), apiDeleteNote);
+    diff(from.backgrounds, to.backgrounds, apiRecreateBackground, (b) => apiUpdateBackground(b.id, b), apiDeleteBackground);
+    diff(from.lines, to.lines, apiRecreateLine, (l) => apiUpdateLine(l.id, l), apiDeleteLine);
+    diff(
+        from.groups,
+        to.groups,
+        (g) => apiCreateGroup(g),
+        (g) => updateGroupDB(g.id, g),
+        deleteGroupDB
+    );
+    diff(
+        from.drawStrokes,
+        to.drawStrokes,
+        (s) => createDrawingStroke(mapId, s),
+        () => Promise.resolve(),
+        deleteDrawingStroke
+    );
+
+    await Promise.allSettled(ops);
+}
 
 type CreationMode = 'none' | 'poi' | 'zone' | 'note' | 'background' | 'line' | 'draw';
 
@@ -65,6 +130,9 @@ interface MapState {
     groups: MapGroup[];
 
     multiSelectedIds: string[];
+
+    undoStack: HistoryEntry[];
+    redoStack: HistoryEntry[];
 
     setCurrentMap: (map: MapData | null) => void;
     loadMapData: (mapId: string) => Promise<void>;
@@ -118,8 +186,10 @@ interface MapState {
     setDrawingLayerColor: (color: string) => void;
     setDrawingLayerSize: (size: number) => void;
     addDrawStroke: (stroke: DrawStroke) => void;
-    undoLastDrawStroke: () => void;
     clearDrawStrokes: () => void;
+
+    undo: () => void;
+    redo: () => void;
 
     addPoi: (poi: POI) => void;
     updatePoi: (id: string, updates: Partial<POI>) => void;
@@ -146,6 +216,21 @@ interface MapState {
     addToMultiSelect: (ids: string[]) => void;
     clearMultiSelect: () => void;
 
+    _remoteAddPoi: (poi: POI) => void;
+    _remoteUpdatePoi: (id: string, updates: Partial<POI>) => void;
+    _remoteDeletePoi: (id: string) => void;
+    _remoteAddZone: (zone: Zone) => void;
+    _remoteUpdateZone: (id: string, updates: Partial<Zone>) => void;
+    _remoteDeleteZone: (id: string) => void;
+    _remoteAddNote: (note: TextNote) => void;
+    _remoteUpdateNote: (id: string, updates: Partial<TextNote>) => void;
+    _remoteDeleteNote: (id: string) => void;
+    _remoteAddBackground: (bg: Background) => void;
+    _remoteUpdateBackground: (id: string, updates: Partial<Background>) => void;
+    _remoteDeleteBackground: (id: string) => void;
+    _remoteAddLine: (line: MapLine) => void;
+    _remoteUpdateLine: (id: string, updates: Partial<MapLine>) => void;
+    _remoteDeleteLine: (id: string) => void;
     _remoteAddStroke: (stroke: DrawStroke) => void;
     _remoteDeleteStroke: (id: string) => void;
     _remoteAddGroup: (group: MapGroup) => void;
@@ -198,6 +283,9 @@ export const useMapStore = create<MapState>((set, get) => ({
     groups: [],
     multiSelectedIds: [],
 
+    undoStack: [],
+    redoStack: [],
+
     drawingLayer: {
         hidden: false,
         locked: false,
@@ -219,6 +307,8 @@ export const useMapStore = create<MapState>((set, get) => ({
             elementTypes: types,
             drawingLayer: { ...state.drawingLayer, strokes },
             groups,
+            undoStack: [],
+            redoStack: [],
         }));
     },
     setElementTypes: (types) => set({ elementTypes: types }),
@@ -255,12 +345,23 @@ export const useMapStore = create<MapState>((set, get) => ({
             else if (note) apiUpdateNote(id, { locked: newVal }).catch(console.error);
             else if (bg) apiUpdateBackground(id, { locked: newVal }).catch(console.error);
             else if (line) apiUpdateLine(id, { locked: newVal }).catch(console.error);
+            const newPois = toggle(state.pois);
+            const newZones = toggle(state.zones);
+            const newNotes = toggle(state.notes);
+            const newBgs = toggle(state.backgrounds);
+            const newLines = toggle(state.lines);
+            const entry: HistoryEntry = {
+                before: { pois: state.pois, zones: state.zones, notes: state.notes, backgrounds: state.backgrounds, lines: state.lines },
+                after: { pois: newPois, zones: newZones, notes: newNotes, backgrounds: newBgs, lines: newLines },
+            };
             return {
-                pois: toggle(state.pois),
-                zones: toggle(state.zones),
-                notes: toggle(state.notes),
-                backgrounds: toggle(state.backgrounds),
-                lines: toggle(state.lines),
+                pois: newPois,
+                zones: newZones,
+                notes: newNotes,
+                backgrounds: newBgs,
+                lines: newLines,
+                undoStack: pushHistory(state.undoStack, entry),
+                redoStack: [],
             };
         }),
     toggleElementHidden: (id) =>
@@ -277,12 +378,23 @@ export const useMapStore = create<MapState>((set, get) => ({
             else if (note) apiUpdateNote(id, { hidden: newVal }).catch(console.error);
             else if (bg) apiUpdateBackground(id, { hidden: newVal }).catch(console.error);
             else if (line) apiUpdateLine(id, { hidden: newVal }).catch(console.error);
+            const newPois = toggle(state.pois);
+            const newZones = toggle(state.zones);
+            const newNotes = toggle(state.notes);
+            const newBgs = toggle(state.backgrounds);
+            const newLines = toggle(state.lines);
+            const entry: HistoryEntry = {
+                before: { pois: state.pois, zones: state.zones, notes: state.notes, backgrounds: state.backgrounds, lines: state.lines },
+                after: { pois: newPois, zones: newZones, notes: newNotes, backgrounds: newBgs, lines: newLines },
+            };
             return {
-                pois: toggle(state.pois),
-                zones: toggle(state.zones),
-                notes: toggle(state.notes),
-                backgrounds: toggle(state.backgrounds),
-                lines: toggle(state.lines),
+                pois: newPois,
+                zones: newZones,
+                notes: newNotes,
+                backgrounds: newBgs,
+                lines: newLines,
+                undoStack: pushHistory(state.undoStack, entry),
+                redoStack: [],
             };
         }),
     setElementHidden: (id, hidden) =>
@@ -298,12 +410,23 @@ export const useMapStore = create<MapState>((set, get) => ({
             else if (note) apiUpdateNote(id, { hidden }).catch(console.error);
             else if (bg) apiUpdateBackground(id, { hidden }).catch(console.error);
             else if (line) apiUpdateLine(id, { hidden }).catch(console.error);
+            const newPois = apply(state.pois);
+            const newZones = apply(state.zones);
+            const newNotes = apply(state.notes);
+            const newBgs = apply(state.backgrounds);
+            const newLines = apply(state.lines);
+            const entry: HistoryEntry = {
+                before: { pois: state.pois, zones: state.zones, notes: state.notes, backgrounds: state.backgrounds, lines: state.lines },
+                after: { pois: newPois, zones: newZones, notes: newNotes, backgrounds: newBgs, lines: newLines },
+            };
             return {
-                pois: apply(state.pois),
-                zones: apply(state.zones),
-                notes: apply(state.notes),
-                backgrounds: apply(state.backgrounds),
-                lines: apply(state.lines),
+                pois: newPois,
+                zones: newZones,
+                notes: newNotes,
+                backgrounds: newBgs,
+                lines: newLines,
+                undoStack: pushHistory(state.undoStack, entry),
+                redoStack: [],
             };
         }),
     setAllElementsHidden: (hidden) =>
@@ -314,15 +437,23 @@ export const useMapStore = create<MapState>((set, get) => ({
             for (const note of state.notes) apiUpdateNote(note.id, { hidden: shouldHide(note.pinned) }).catch(console.error);
             for (const bg of state.backgrounds) apiUpdateBackground(bg.id, { hidden: shouldHide(bg.pinned) }).catch(console.error);
             for (const line of state.lines) apiUpdateLine(line.id, { hidden: shouldHide(line.pinned) }).catch(console.error);
+            const newPois = state.pois.map((p) => ({ ...p, hidden: shouldHide(p.pinned) }));
+            const newZones = state.zones.map((z) => ({ ...z, hidden: shouldHide(z.pinned) }));
+            const newNotes = state.notes.map((n) => ({ ...n, hidden: shouldHide(n.pinned) }));
+            const newBgs = state.backgrounds.map((b) => ({ ...b, hidden: shouldHide(b.pinned) }));
+            const newLines = state.lines.map((l) => ({ ...l, hidden: shouldHide(l.pinned) }));
+            const entry: HistoryEntry = {
+                before: { pois: state.pois, zones: state.zones, notes: state.notes, backgrounds: state.backgrounds, lines: state.lines },
+                after: { pois: newPois, zones: newZones, notes: newNotes, backgrounds: newBgs, lines: newLines },
+            };
             return {
-                pois: state.pois.map((p) => ({ ...p, hidden: shouldHide(p.pinned) })),
-                zones: state.zones.map((z) => ({ ...z, hidden: shouldHide(z.pinned) })),
-                notes: state.notes.map((n) => ({ ...n, hidden: shouldHide(n.pinned) })),
-                backgrounds: state.backgrounds.map((b) => ({
-                    ...b,
-                    hidden: shouldHide(b.pinned),
-                })),
-                lines: state.lines.map((l) => ({ ...l, hidden: shouldHide(l.pinned) })),
+                pois: newPois,
+                zones: newZones,
+                notes: newNotes,
+                backgrounds: newBgs,
+                lines: newLines,
+                undoStack: pushHistory(state.undoStack, entry),
+                redoStack: [],
             };
         }),
     isolateElements: (ids) =>
@@ -335,12 +466,23 @@ export const useMapStore = create<MapState>((set, get) => ({
             for (const n of state.notes) apiUpdateNote(n.id, { hidden: h(n) }).catch(console.error);
             for (const b of state.backgrounds) apiUpdateBackground(b.id, { hidden: h(b) }).catch(console.error);
             for (const l of state.lines) apiUpdateLine(l.id, { hidden: h(l) }).catch(console.error);
+            const newPois = applyHidden(state.pois);
+            const newZones = applyHidden(state.zones);
+            const newNotes = applyHidden(state.notes);
+            const newBgs = applyHidden(state.backgrounds);
+            const newLines = applyHidden(state.lines);
+            const entry: HistoryEntry = {
+                before: { pois: state.pois, zones: state.zones, notes: state.notes, backgrounds: state.backgrounds, lines: state.lines },
+                after: { pois: newPois, zones: newZones, notes: newNotes, backgrounds: newBgs, lines: newLines },
+            };
             return {
-                pois: applyHidden(state.pois),
-                zones: applyHidden(state.zones),
-                notes: applyHidden(state.notes),
-                backgrounds: applyHidden(state.backgrounds),
-                lines: applyHidden(state.lines),
+                pois: newPois,
+                zones: newZones,
+                notes: newNotes,
+                backgrounds: newBgs,
+                lines: newLines,
+                undoStack: pushHistory(state.undoStack, entry),
+                redoStack: [],
             };
         }),
     toggleElementPinned: (id) =>
@@ -357,12 +499,23 @@ export const useMapStore = create<MapState>((set, get) => ({
             else if (note) apiUpdateNote(id, { pinned: newVal }).catch(console.error);
             else if (bg) apiUpdateBackground(id, { pinned: newVal }).catch(console.error);
             else if (line) apiUpdateLine(id, { pinned: newVal }).catch(console.error);
+            const newPois = toggle(state.pois);
+            const newZones = toggle(state.zones);
+            const newNotes = toggle(state.notes);
+            const newBgs = toggle(state.backgrounds);
+            const newLines = toggle(state.lines);
+            const entry: HistoryEntry = {
+                before: { pois: state.pois, zones: state.zones, notes: state.notes, backgrounds: state.backgrounds, lines: state.lines },
+                after: { pois: newPois, zones: newZones, notes: newNotes, backgrounds: newBgs, lines: newLines },
+            };
             return {
-                pois: toggle(state.pois),
-                zones: toggle(state.zones),
-                notes: toggle(state.notes),
-                backgrounds: toggle(state.backgrounds),
-                lines: toggle(state.lines),
+                pois: newPois,
+                zones: newZones,
+                notes: newNotes,
+                backgrounds: newBgs,
+                lines: newLines,
+                undoStack: pushHistory(state.undoStack, entry),
+                redoStack: [],
             };
         }),
     setIsElementsPanelOpen: (open) => set({ isElementsPanelOpen: open }),
@@ -387,103 +540,152 @@ export const useMapStore = create<MapState>((set, get) => ({
             if (state.drawingLayer.strokes.some((s) => s.id === stroke.id)) return state;
             const mapId = state.currentMap?.id;
             if (mapId) createDrawingStroke(mapId, stroke).catch(console.error);
-            return {
-                drawingLayer: {
-                    ...state.drawingLayer,
-                    strokes: [...state.drawingLayer.strokes, stroke],
-                },
+            const newStrokes = [...state.drawingLayer.strokes, stroke];
+            const entry: HistoryEntry = {
+                before: { drawStrokes: state.drawingLayer.strokes },
+                after: { drawStrokes: newStrokes },
             };
-        }),
-    undoLastDrawStroke: () =>
-        set((state) => {
-            const last = state.drawingLayer.strokes[state.drawingLayer.strokes.length - 1];
-            if (last) deleteDrawingStroke(last.id).catch(console.error);
             return {
-                drawingLayer: {
-                    ...state.drawingLayer,
-                    strokes: state.drawingLayer.strokes.slice(0, -1),
-                },
+                drawingLayer: { ...state.drawingLayer, strokes: newStrokes },
+                undoStack: pushHistory(state.undoStack, entry),
+                redoStack: [],
             };
         }),
     clearDrawStrokes: () =>
         set((state) => {
             const mapId = state.currentMap?.id;
             if (mapId) clearMapDrawingStrokes(mapId).catch(console.error);
+            const entry: HistoryEntry = {
+                before: { drawStrokes: state.drawingLayer.strokes },
+                after: { drawStrokes: [] },
+            };
             return {
                 drawingLayer: { ...state.drawingLayer, strokes: [] },
+                undoStack: pushHistory(state.undoStack, entry),
+                redoStack: [],
             };
         }),
 
     addPoi: (poi) =>
         set((state) => {
             if (state.pois.some((p) => p.id === poi.id)) return state;
-            return { pois: [...state.pois, poi] };
+            const newPois = [...state.pois, poi];
+            const entry: HistoryEntry = { before: { pois: state.pois }, after: { pois: newPois } };
+            return { pois: newPois, undoStack: pushHistory(state.undoStack, entry), redoStack: [] };
         }),
     updatePoi: (id, updates) =>
-        set((state) => ({
-            pois: state.pois.map((p) => (p.id === id ? { ...p, ...updates } : p)),
-        })),
+        set((state) => {
+            const newPois = state.pois.map((p) => (p.id === id ? { ...p, ...updates } : p));
+            const entry: HistoryEntry = { before: { pois: state.pois }, after: { pois: newPois } };
+            return { pois: newPois, undoStack: pushHistory(state.undoStack, entry), redoStack: [] };
+        }),
     deletePoi: (id) =>
-        set((state) => ({
-            pois: state.pois.filter((p) => p.id !== id),
-            selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
-        })),
+        set((state) => {
+            const newPois = state.pois.filter((p) => p.id !== id);
+            const entry: HistoryEntry = { before: { pois: state.pois }, after: { pois: newPois } };
+            return {
+                pois: newPois,
+                selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
+                undoStack: pushHistory(state.undoStack, entry),
+                redoStack: [],
+            };
+        }),
     addZone: (zone) =>
         set((state) => {
             if (state.zones.some((z) => z.id === zone.id)) return state;
-            return { zones: [...state.zones, zone] };
+            const newZones = [...state.zones, zone];
+            const entry: HistoryEntry = { before: { zones: state.zones }, after: { zones: newZones } };
+            return { zones: newZones, undoStack: pushHistory(state.undoStack, entry), redoStack: [] };
         }),
     updateZone: (id, updates) =>
-        set((state) => ({
-            zones: state.zones.map((z) => (z.id === id ? { ...z, ...updates } : z)),
-        })),
+        set((state) => {
+            const newZones = state.zones.map((z) => (z.id === id ? { ...z, ...updates } : z));
+            const entry: HistoryEntry = { before: { zones: state.zones }, after: { zones: newZones } };
+            return { zones: newZones, undoStack: pushHistory(state.undoStack, entry), redoStack: [] };
+        }),
     deleteZone: (id) =>
-        set((state) => ({
-            zones: state.zones.filter((z) => z.id !== id),
-            selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
-        })),
+        set((state) => {
+            const newZones = state.zones.filter((z) => z.id !== id);
+            const entry: HistoryEntry = { before: { zones: state.zones }, after: { zones: newZones } };
+            return {
+                zones: newZones,
+                selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
+                undoStack: pushHistory(state.undoStack, entry),
+                redoStack: [],
+            };
+        }),
     addNote: (note) =>
         set((state) => {
             if (state.notes.some((n) => n.id === note.id)) return state;
-            return { notes: [...state.notes, note] };
+            const newNotes = [...state.notes, note];
+            const entry: HistoryEntry = { before: { notes: state.notes }, after: { notes: newNotes } };
+            return { notes: newNotes, undoStack: pushHistory(state.undoStack, entry), redoStack: [] };
         }),
     updateNote: (id, updates) =>
-        set((state) => ({
-            notes: state.notes.map((n) => (n.id === id ? { ...n, ...updates } : n)),
-        })),
+        set((state) => {
+            const newNotes = state.notes.map((n) => (n.id === id ? { ...n, ...updates } : n));
+            const entry: HistoryEntry = { before: { notes: state.notes }, after: { notes: newNotes } };
+            return { notes: newNotes, undoStack: pushHistory(state.undoStack, entry), redoStack: [] };
+        }),
     deleteNote: (id) =>
-        set((state) => ({
-            notes: state.notes.filter((n) => n.id !== id),
-            selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
-        })),
+        set((state) => {
+            const newNotes = state.notes.filter((n) => n.id !== id);
+            const entry: HistoryEntry = { before: { notes: state.notes }, after: { notes: newNotes } };
+            return {
+                notes: newNotes,
+                selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
+                undoStack: pushHistory(state.undoStack, entry),
+                redoStack: [],
+            };
+        }),
     addBackground: (bg) =>
         set((state) => {
             if (state.backgrounds.some((b) => b.id === bg.id)) return state;
-            return { backgrounds: [...state.backgrounds, bg] };
+            const newBgs = [...state.backgrounds, bg];
+            const entry: HistoryEntry = { before: { backgrounds: state.backgrounds }, after: { backgrounds: newBgs } };
+            return { backgrounds: newBgs, undoStack: pushHistory(state.undoStack, entry), redoStack: [] };
         }),
     updateBackground: (id, updates) =>
-        set((state) => ({
-            backgrounds: state.backgrounds.map((b) => (b.id === id ? { ...b, ...updates } : b)),
-        })),
+        set((state) => {
+            const newBgs = state.backgrounds.map((b) => (b.id === id ? { ...b, ...updates } : b));
+            const entry: HistoryEntry = { before: { backgrounds: state.backgrounds }, after: { backgrounds: newBgs } };
+            return { backgrounds: newBgs, undoStack: pushHistory(state.undoStack, entry), redoStack: [] };
+        }),
     deleteBackground: (id) =>
-        set((state) => ({
-            backgrounds: state.backgrounds.filter((b) => b.id !== id),
-            selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
-        })),
+        set((state) => {
+            const newBgs = state.backgrounds.filter((b) => b.id !== id);
+            const entry: HistoryEntry = { before: { backgrounds: state.backgrounds }, after: { backgrounds: newBgs } };
+            return {
+                backgrounds: newBgs,
+                selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
+                undoStack: pushHistory(state.undoStack, entry),
+                redoStack: [],
+            };
+        }),
     addLine: (line) =>
         set((state) => {
             if (state.lines.some((l) => l.id === line.id)) return state;
-            return { lines: [...state.lines, line] };
+            const newLines = [...state.lines, line];
+            const entry: HistoryEntry = { before: { lines: state.lines }, after: { lines: newLines } };
+            return { lines: newLines, undoStack: pushHistory(state.undoStack, entry), redoStack: [] };
         }),
     updateLine: (id, updates) =>
-        set((state) => ({
-            lines: state.lines.map((l) => (l.id === id ? { ...l, ...updates } : l)),
-        })),
+        set((state) => {
+            const newLines = state.lines.map((l) => (l.id === id ? { ...l, ...updates } : l));
+            const entry: HistoryEntry = { before: { lines: state.lines }, after: { lines: newLines } };
+            return { lines: newLines, undoStack: pushHistory(state.undoStack, entry), redoStack: [] };
+        }),
     deleteLine: (id) =>
-        set((state) => ({
-            lines: state.lines.filter((l) => l.id !== id),
-            selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
-        })),
+        set((state) => {
+            const newLines = state.lines.filter((l) => l.id !== id);
+            const entry: HistoryEntry = { before: { lines: state.lines }, after: { lines: newLines } };
+            return {
+                lines: newLines,
+                selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
+                undoStack: pushHistory(state.undoStack, entry),
+                redoStack: [],
+            };
+        }),
     addGroup: (name, color, initialMemberIds = []) =>
         set((state) => {
             const mapId = state.currentMap?.id;
@@ -509,21 +711,25 @@ export const useMapStore = create<MapState>((set, get) => ({
                 return { ...g, memberIds: newMemberIds };
             });
             apiCreateGroup(newGroup).catch(console.error);
-            return { groups: [...updatedGroups, newGroup] };
+            const newGroups = [...updatedGroups, newGroup];
+            const entry: HistoryEntry = { before: { groups: state.groups }, after: { groups: newGroups } };
+            return { groups: newGroups, undoStack: pushHistory(state.undoStack, entry), redoStack: [] };
         }),
 
     updateGroup: (id, updates) =>
         set((state) => {
             updateGroupDB(id, updates).catch(console.error);
-            return {
-                groups: state.groups.map((g) => (g.id === id ? { ...g, ...updates } : g)),
-            };
+            const newGroups = state.groups.map((g) => (g.id === id ? { ...g, ...updates } : g));
+            const entry: HistoryEntry = { before: { groups: state.groups }, after: { groups: newGroups } };
+            return { groups: newGroups, undoStack: pushHistory(state.undoStack, entry), redoStack: [] };
         }),
 
     deleteGroup: (id) =>
         set((state) => {
             deleteGroupDB(id).catch(console.error);
-            return { groups: state.groups.filter((g) => g.id !== id) };
+            const newGroups = state.groups.filter((g) => g.id !== id);
+            const entry: HistoryEntry = { before: { groups: state.groups }, after: { groups: newGroups } };
+            return { groups: newGroups, undoStack: pushHistory(state.undoStack, entry), redoStack: [] };
         }),
 
     setElementGroup: (elementId, groupId) =>
@@ -545,7 +751,8 @@ export const useMapStore = create<MapState>((set, get) => ({
                 }
                 return { ...g, memberIds: newMemberIds };
             });
-            return { groups: updatedGroups };
+            const entry: HistoryEntry = { before: { groups: state.groups }, after: { groups: updatedGroups } };
+            return { groups: updatedGroups, undoStack: pushHistory(state.undoStack, entry), redoStack: [] };
         }),
 
     _remoteAddStroke: (stroke) =>
@@ -576,6 +783,132 @@ export const useMapStore = create<MapState>((set, get) => ({
         })),
     _remoteDeleteGroup: (id) => set((state) => ({ groups: state.groups.filter((g) => g.id !== id) })),
 
+    _remoteAddPoi: (poi) =>
+        set((state) => {
+            if (state.pois.some((p) => p.id === poi.id)) return state;
+            return { pois: [...state.pois, poi] };
+        }),
+    _remoteUpdatePoi: (id, updates) => set((state) => ({ pois: state.pois.map((p) => (p.id === id ? { ...p, ...updates } : p)) })),
+    _remoteDeletePoi: (id) =>
+        set((state) => ({
+            pois: state.pois.filter((p) => p.id !== id),
+            selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
+        })),
+
+    _remoteAddZone: (zone) =>
+        set((state) => {
+            if (state.zones.some((z) => z.id === zone.id)) return state;
+            return { zones: [...state.zones, zone] };
+        }),
+    _remoteUpdateZone: (id, updates) => set((state) => ({ zones: state.zones.map((z) => (z.id === id ? { ...z, ...updates } : z)) })),
+    _remoteDeleteZone: (id) =>
+        set((state) => ({
+            zones: state.zones.filter((z) => z.id !== id),
+            selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
+        })),
+
+    _remoteAddNote: (note) =>
+        set((state) => {
+            if (state.notes.some((n) => n.id === note.id)) return state;
+            return { notes: [...state.notes, note] };
+        }),
+    _remoteUpdateNote: (id, updates) => set((state) => ({ notes: state.notes.map((n) => (n.id === id ? { ...n, ...updates } : n)) })),
+    _remoteDeleteNote: (id) =>
+        set((state) => ({
+            notes: state.notes.filter((n) => n.id !== id),
+            selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
+        })),
+
+    _remoteAddBackground: (bg) =>
+        set((state) => {
+            if (state.backgrounds.some((b) => b.id === bg.id)) return state;
+            return { backgrounds: [...state.backgrounds, bg] };
+        }),
+    _remoteUpdateBackground: (id, updates) => set((state) => ({ backgrounds: state.backgrounds.map((b) => (b.id === id ? { ...b, ...updates } : b)) })),
+    _remoteDeleteBackground: (id) =>
+        set((state) => ({
+            backgrounds: state.backgrounds.filter((b) => b.id !== id),
+            selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
+        })),
+
+    _remoteAddLine: (line) =>
+        set((state) => {
+            if (state.lines.some((l) => l.id === line.id)) return state;
+            return { lines: [...state.lines, line] };
+        }),
+    _remoteUpdateLine: (id, updates) => set((state) => ({ lines: state.lines.map((l) => (l.id === id ? { ...l, ...updates } : l)) })),
+    _remoteDeleteLine: (id) =>
+        set((state) => ({
+            lines: state.lines.filter((l) => l.id !== id),
+            selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
+        })),
+
+    undo: () =>
+        set((state) => {
+            const entry = state.undoStack[state.undoStack.length - 1];
+            if (!entry) return state;
+            const mapId = state.currentMap?.id ?? '';
+            syncHistoryDiff(mapId, entry.after, entry.before).catch(console.error);
+            const snap = entry.before;
+            let selectedElement = state.selectedElement;
+            if (selectedElement) {
+                const { id, kind } = selectedElement;
+                const stillExists =
+                    (kind === 'poi' && (snap.pois === undefined || snap.pois.some((p) => p.id === id))) ||
+                    (kind === 'zone' && (snap.zones === undefined || snap.zones.some((z) => z.id === id))) ||
+                    (kind === 'note' && (snap.notes === undefined || snap.notes.some((n) => n.id === id))) ||
+                    (kind === 'background' && (snap.backgrounds === undefined || snap.backgrounds.some((b) => b.id === id))) ||
+                    (kind === 'line' && (snap.lines === undefined || snap.lines.some((l) => l.id === id))) ||
+                    kind === 'drawing';
+                if (!stillExists) selectedElement = null;
+            }
+            return {
+                ...(snap.pois !== undefined ? { pois: snap.pois } : {}),
+                ...(snap.zones !== undefined ? { zones: snap.zones } : {}),
+                ...(snap.notes !== undefined ? { notes: snap.notes } : {}),
+                ...(snap.backgrounds !== undefined ? { backgrounds: snap.backgrounds } : {}),
+                ...(snap.lines !== undefined ? { lines: snap.lines } : {}),
+                ...(snap.groups !== undefined ? { groups: snap.groups } : {}),
+                ...(snap.drawStrokes !== undefined ? { drawingLayer: { ...state.drawingLayer, strokes: snap.drawStrokes } } : {}),
+                selectedElement,
+                undoStack: state.undoStack.slice(0, -1),
+                redoStack: [...state.redoStack, entry],
+            };
+        }),
+
+    redo: () =>
+        set((state) => {
+            const entry = state.redoStack[state.redoStack.length - 1];
+            if (!entry) return state;
+            const mapId = state.currentMap?.id ?? '';
+            syncHistoryDiff(mapId, entry.before, entry.after).catch(console.error);
+            const snap = entry.after;
+            let selectedElement = state.selectedElement;
+            if (selectedElement) {
+                const { id, kind } = selectedElement;
+                const stillExists =
+                    (kind === 'poi' && (snap.pois === undefined || snap.pois.some((p) => p.id === id))) ||
+                    (kind === 'zone' && (snap.zones === undefined || snap.zones.some((z) => z.id === id))) ||
+                    (kind === 'note' && (snap.notes === undefined || snap.notes.some((n) => n.id === id))) ||
+                    (kind === 'background' && (snap.backgrounds === undefined || snap.backgrounds.some((b) => b.id === id))) ||
+                    (kind === 'line' && (snap.lines === undefined || snap.lines.some((l) => l.id === id))) ||
+                    kind === 'drawing';
+                if (!stillExists) selectedElement = null;
+            }
+            return {
+                ...(snap.pois !== undefined ? { pois: snap.pois } : {}),
+                ...(snap.zones !== undefined ? { zones: snap.zones } : {}),
+                ...(snap.notes !== undefined ? { notes: snap.notes } : {}),
+                ...(snap.backgrounds !== undefined ? { backgrounds: snap.backgrounds } : {}),
+                ...(snap.lines !== undefined ? { lines: snap.lines } : {}),
+                ...(snap.groups !== undefined ? { groups: snap.groups } : {}),
+                ...(snap.drawStrokes !== undefined ? { drawingLayer: { ...state.drawingLayer, strokes: snap.drawStrokes } } : {}),
+                selectedElement,
+                undoStack: [...state.undoStack, entry],
+                redoStack: state.redoStack.slice(0, -1),
+            };
+        }),
+
     resetMapData: () =>
         set((state) => ({
             currentMap: null,
@@ -593,6 +926,8 @@ export const useMapStore = create<MapState>((set, get) => ({
             tempCreationData: null,
             isCreationModalOpen: false,
             drawingLayer: { ...state.drawingLayer, strokes: [] },
+            undoStack: [],
+            redoStack: [],
         })),
 
     toggleMultiSelect: (id) =>

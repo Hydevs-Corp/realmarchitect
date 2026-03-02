@@ -67,12 +67,13 @@ function MemberRow({
     onRemove: () => void;
     onTransfer: () => void;
 }) {
+    console.log(member);
     return (
         <Group gap="xs">
             <Stack gap={0} style={{ flex: 1 }}>
                 <Group gap={6}>
                     <Text size="sm" fw={isOwner ? 600 : 400}>
-                        {member.name || member.email}
+                        {member.name || member.email || 'Unknown user'}
                     </Text>
                     {isOwner && (
                         <Badge size="xs" color="orange" variant="light">
@@ -85,7 +86,7 @@ function MemberRow({
                         </Badge>
                     )}
                 </Group>
-                {member.name && (
+                {member.email && (
                     <Text size="xs" c="dimmed">
                         {member.email}
                     </Text>
@@ -176,7 +177,7 @@ export function MapSettingsModal({ mapId, mapName, currentUserId, isOwner, opene
     };
 
     const handleRemoveMember = (member: MapMember) => {
-        const isSelf = member.userId === currentUserId;
+        const isSelf = member.user === currentUserId;
         modals.openConfirmModal({
             title: isSelf ? 'Leave map' : 'Remove member',
             centered: true,
@@ -196,7 +197,7 @@ export function MapSettingsModal({ mapId, mapName, currentUserId, isOwner, opene
     };
 
     const handleTransfer = (newOwner: MapMember) => {
-        const currentOwnerMember = members.find((m) => m.userId === currentUserId && m.role === 'owner');
+        const currentOwnerMember = members.find((m) => m.user === currentUserId && m.role === 'owner');
         if (!currentOwnerMember) return;
 
         modals.openConfirmModal({
@@ -210,7 +211,7 @@ export function MapSettingsModal({ mapId, mapName, currentUserId, isOwner, opene
             labels: { confirm: 'Transfer', cancel: 'Cancel' },
             confirmProps: { color: 'orange' },
             onConfirm: async () => {
-                await transferOwnership(mapId, newOwner.userId, currentUserId, currentOwnerMember.id, newOwner.id);
+                await transferOwnership(mapId, newOwner.user, currentUserId, currentOwnerMember.id, newOwner.id);
                 notifications.show({
                     message: 'Ownership transferred',
                     color: mainColor,
@@ -239,7 +240,7 @@ export function MapSettingsModal({ mapId, mapName, currentUserId, isOwner, opene
                                     <MemberRow
                                         key={m.id}
                                         member={m}
-                                        isCurrentUser={m.userId === currentUserId}
+                                        isCurrentUser={m.user === currentUserId}
                                         isOwner={m.role === 'owner'}
                                         canManage={isOwner}
                                         onRemove={() => handleRemoveMember(m)}
@@ -342,7 +343,7 @@ export function MapSettingsModal({ mapId, mapName, currentUserId, isOwner, opene
                                         size="xs"
                                         leftSection={<IconUserMinus size={12} />}
                                         onClick={() => {
-                                            const me = members.find((m) => m.userId === currentUserId);
+                                            const me = members.find((m) => m.user === currentUserId);
                                             if (me) handleRemoveMember(me);
                                         }}
                                     >

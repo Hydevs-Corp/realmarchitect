@@ -1,9 +1,9 @@
+import { Hypb, loginPB } from '@hydevs/hypb';
+import { Box, Button, Center, DEFAULT_THEME, getGradient, Paper, PasswordInput, Stack, Tabs, Text, TextInput, Title } from '@mantine/core';
+import { useForm } from '@mantine/form';
+import { IconGlobe, IconLogin2, IconUserCircle } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { Anchor, Box, Button, Center, Paper, PasswordInput, Stack, Tabs, Text, TextInput, Title } from '@mantine/core';
-import { useForm } from '@mantine/form';
-import { Hypb, loginPB } from '@hydevs/hypb';
-import { IconMap } from '@tabler/icons-react';
 import { mainColor } from '../constants';
 
 function LoginForm({ onSuccess }: { onSuccess: () => void }) {
@@ -34,14 +34,14 @@ function LoginForm({ onSuccess }: { onSuccess: () => void }) {
     return (
         <form onSubmit={form.onSubmit(handleSubmit)}>
             <Stack gap="sm">
-                <TextInput label="Email" placeholder="vous@exemple.com" type="email" {...form.getInputProps('email')} />
-                <PasswordInput label="Mot de passe" placeholder="••••••••" {...form.getInputProps('password')} />
+                <TextInput label="Email" placeholder="you@example.com" type="email" {...form.getInputProps('email')} />
+                <PasswordInput label="Password" placeholder="••••••••" {...form.getInputProps('password')} />
                 {error && (
                     <Text c="red" size="sm">
                         {error}
                     </Text>
                 )}
-                <Button type="submit" loading={loading} fullWidth mt="xs">
+                <Button leftSection={<IconLogin2 />} type="submit" loading={loading} fullWidth mt="xs">
                     Sign in
                 </Button>
             </Stack>
@@ -101,7 +101,7 @@ function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
                         {error}
                     </Text>
                 )}
-                <Button type="submit" loading={loading} fullWidth mt="xs">
+                <Button leftSection={<IconUserCircle />} type="submit" loading={loading} fullWidth mt="xs">
                     Create account
                 </Button>
             </Stack>
@@ -119,17 +119,26 @@ export function LoginPage() {
     };
 
     return (
-        <Center h="100vh" bg="var(--mantine-color-default-hover)">
+        <Center
+            h="calc(100svh - var(--app-shell-header-height))"
+            bg={getGradient(
+                {
+                    from: mainColor + '.9',
+                    to: mainColor + '.3',
+                    deg: 45,
+                },
+                DEFAULT_THEME
+            )}
+        >
             <Box w={400}>
-                <Stack align="center" mb="xl" gap="xs">
-                    <IconMap size={40} color={'var(--mantine-color-' + mainColor + '-5)'} />
-                    <Title order={2}>World Maps</Title>
-                    <Text c="dimmed" size="sm">
-                        Sign in to access your maps
-                    </Text>
-                </Stack>
-
                 <Paper p="xl" radius="md" withBorder>
+                    <Stack align="center" mb="xl" gap="xs">
+                        <IconGlobe size={40} color={'var(--mantine-color-' + mainColor + '-5)'} />
+                        <Title order={2}>Realm Architect</Title>
+                        <Text c="dimmed" size="sm">
+                            Sign in to access your maps
+                        </Text>
+                    </Stack>
                     <Tabs defaultValue="login">
                         <Tabs.List grow mb="lg">
                             <Tabs.Tab value="login">Sign in</Tabs.Tab>
@@ -143,13 +152,6 @@ export function LoginPage() {
                         </Tabs.Panel>
                     </Tabs>
                 </Paper>
-
-                <Text ta="center" mt="md" size="xs" c="dimmed">
-                    Connection issues?{' '}
-                    <Anchor size="xs" href="mailto:admin@louisrvl.fr">
-                        Contact the admin
-                    </Anchor>
-                </Text>
             </Box>
         </Center>
     );

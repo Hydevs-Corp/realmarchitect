@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { Button, Center, Loader, Paper, Stack, Text, Title } from '@mantine/core';
+import { Button, Center, DEFAULT_THEME, getGradient, Loader, Paper, Stack, Text, Title } from '@mantine/core';
 import { useAuthContext } from '@hydevs/hypb';
 import { IconMap, IconMapOff } from '@tabler/icons-react';
 import { addMapMember, checkMembership, fetchInviteByToken } from '../lib/api';
@@ -73,7 +73,17 @@ export function JoinPage() {
     }
 
     return (
-        <Center h="100vh" bg="var(--mantine-color-default-hover)">
+        <Center
+            h="calc(100svh - var(--app-shell-header-height))"
+            bg={getGradient(
+                {
+                    from: mainColor + '.9',
+                    to: mainColor + '.3',
+                    deg: 45,
+                },
+                DEFAULT_THEME
+            )}
+        >
             <Paper p="xl" radius="md" withBorder w={380}>
                 <Stack align="center" gap="md">
                     {state === 'error' ? (

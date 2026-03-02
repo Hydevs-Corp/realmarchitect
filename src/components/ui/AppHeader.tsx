@@ -88,27 +88,29 @@ export const AppHeader: React.FC = () => {
                             </Group>
                         )}
 
-                        <Menu shadow="md" width={200} position="bottom-end">
-                            <Menu.Target>
-                                <Button
-                                    variant="default"
-                                    rightSection={<IconChevronDown size={14} />}
-                                    leftSection={
-                                        <Avatar size={20} radius="xl" color={mainColor}>
-                                            <IconUserCircle size={14} />
-                                        </Avatar>
-                                    }
-                                >
-                                    {userData?.name || userData?.email}
-                                </Button>
-                            </Menu.Target>
-                            <Menu.Dropdown>
-                                <Menu.Label>{userData?.email}</Menu.Label>
-                                <Menu.Item color="red" onClick={onLogout}>
-                                    Sign out
-                                </Menu.Item>
-                            </Menu.Dropdown>
-                        </Menu>
+                        {userData && (
+                            <Menu shadow="md" width={200} position="bottom-end">
+                                <Menu.Target>
+                                    <Button
+                                        variant="default"
+                                        rightSection={<IconChevronDown size={14} />}
+                                        leftSection={
+                                            <Avatar size={20} radius="xl" color={mainColor}>
+                                                <IconUserCircle size={14} />
+                                            </Avatar>
+                                        }
+                                    >
+                                        {userData?.name || userData?.email}
+                                    </Button>
+                                </Menu.Target>
+                                <Menu.Dropdown>
+                                    <Menu.Label>{userData?.email}</Menu.Label>
+                                    <Menu.Item color="red" onClick={onLogout}>
+                                        Sign out
+                                    </Menu.Item>
+                                </Menu.Dropdown>
+                            </Menu>
+                        )}
                     </Group>
                 </Group>
             </AppShell.Header>

@@ -52,6 +52,7 @@ export interface Background extends MapElement {
     rotation?: number;
 
     lockAspectRatio?: boolean;
+    assetId?: string;
 }
 
 export type LineAttachKind = 'poi' | 'zone' | 'note' | 'background';
@@ -85,10 +86,10 @@ export interface MapData {
 export interface MapMember {
     id: string;
     mapId: string;
-    userId: string;
+    user: string;
     role: 'owner' | 'member';
+    name: string;
     email: string;
-    name?: string;
 }
 
 export interface MapInvite {
@@ -135,4 +136,19 @@ export interface MapGroup {
     pinned: boolean;
 
     memberIds: string[];
+}
+
+export interface HistorySnapshot {
+    pois?: POI[];
+    zones?: Zone[];
+    notes?: TextNote[];
+    backgrounds?: Background[];
+    lines?: MapLine[];
+    groups?: MapGroup[];
+    drawStrokes?: DrawStroke[];
+}
+
+export interface HistoryEntry {
+    before: HistorySnapshot;
+    after: HistorySnapshot;
 }

@@ -77,7 +77,7 @@ export function useMapRealtime(mapId: string | undefined) {
                 fontSize: raw.font_size,
                 bgColor: raw.bg_color,
                 width: raw.width,
-                author: (raw as any).author ?? undefined,
+                author: raw.author ?? undefined,
                 authorName: raw.expand?.author?.name ?? undefined,
             };
         }
@@ -99,6 +99,7 @@ export function useMapRealtime(mapId: string | undefined) {
                 height: raw.height,
                 rotation: raw.rotation ?? 0,
                 lockAspectRatio: raw.lock_aspect_ratio ?? false,
+                assetId: raw.asset_id || undefined,
             };
         }
 
@@ -160,11 +161,11 @@ export function useMapRealtime(mapId: string | undefined) {
                 const s = useMapStore.getState();
                 const poi = recordToPoi(e.record);
                 if (e.action === 'create') {
-                    if (!s.pois.some((p) => p.id === poi.id)) s.addPoi(poi);
+                    if (!s.pois.some((p) => p.id === poi.id)) s._remoteAddPoi(poi);
                 } else if (e.action === 'update') {
-                    s.updatePoi(e.record.id, poi);
+                    s._remoteUpdatePoi(e.record.id, poi);
                 } else if (e.action === 'delete') {
-                    s.deletePoi(e.record.id);
+                    s._remoteDeletePoi(e.record.id);
                 }
             })
         );
@@ -175,11 +176,11 @@ export function useMapRealtime(mapId: string | undefined) {
                 const s = useMapStore.getState();
                 const zone = recordToZone(e.record);
                 if (e.action === 'create') {
-                    if (!s.zones.some((z) => z.id === zone.id)) s.addZone(zone);
+                    if (!s.zones.some((z) => z.id === zone.id)) s._remoteAddZone(zone);
                 } else if (e.action === 'update') {
-                    s.updateZone(e.record.id, zone);
+                    s._remoteUpdateZone(e.record.id, zone);
                 } else if (e.action === 'delete') {
-                    s.deleteZone(e.record.id);
+                    s._remoteDeleteZone(e.record.id);
                 }
             })
         );
@@ -190,11 +191,11 @@ export function useMapRealtime(mapId: string | undefined) {
                 const s = useMapStore.getState();
                 const note = recordToNote(e.record);
                 if (e.action === 'create') {
-                    if (!s.notes.some((n) => n.id === note.id)) s.addNote(note);
+                    if (!s.notes.some((n) => n.id === note.id)) s._remoteAddNote(note);
                 } else if (e.action === 'update') {
-                    s.updateNote(e.record.id, note);
+                    s._remoteUpdateNote(e.record.id, note);
                 } else if (e.action === 'delete') {
-                    s.deleteNote(e.record.id);
+                    s._remoteDeleteNote(e.record.id);
                 }
             })
         );
@@ -213,31 +214,31 @@ export function useMapRealtime(mapId: string | undefined) {
                         .getOne<DncWorldmapAssetRecord>(maybeAssetId)
                         .then((asset) => {
                             const assetUrl = pb.files.getURL(asset, asset.file);
-                            const bgWithAsset = { ...bg, imageUrl: assetUrl };
+                            const bgWithAsset = { ...bg, imageUrl: assetUrl, assetId: maybeAssetId };
                             if (e.action === 'create') {
-                                if (!s.backgrounds.some((b) => b.id === bgWithAsset.id)) s.addBackground(bgWithAsset);
+                                if (!s.backgrounds.some((b) => b.id === bgWithAsset.id)) s._remoteAddBackground(bgWithAsset);
                             } else if (e.action === 'update') {
-                                s.updateBackground(e.record.id, bgWithAsset);
+                                s._remoteUpdateBackground(e.record.id, bgWithAsset);
                             } else if (e.action === 'delete') {
-                                s.deleteBackground(e.record.id);
+                                s._remoteDeleteBackground(e.record.id);
                             }
                         })
                         .catch(() => {
                             if (e.action === 'create') {
-                                if (!s.backgrounds.some((b) => b.id === bg.id)) s.addBackground(bg);
+                                if (!s.backgrounds.some((b) => b.id === bg.id)) s._remoteAddBackground(bg);
                             } else if (e.action === 'update') {
-                                s.updateBackground(e.record.id, bg);
+                                s._remoteUpdateBackground(e.record.id, bg);
                             } else if (e.action === 'delete') {
-                                s.deleteBackground(e.record.id);
+                                s._remoteDeleteBackground(e.record.id);
                             }
                         });
                 } else {
                     if (e.action === 'create') {
-                        if (!s.backgrounds.some((b) => b.id === bg.id)) s.addBackground(bg);
+                        if (!s.backgrounds.some((b) => b.id === bg.id)) s._remoteAddBackground(bg);
                     } else if (e.action === 'update') {
-                        s.updateBackground(e.record.id, bg);
+                        s._remoteUpdateBackground(e.record.id, bg);
                     } else if (e.action === 'delete') {
-                        s.deleteBackground(e.record.id);
+                        s._remoteDeleteBackground(e.record.id);
                     }
                 }
             })
@@ -249,11 +250,11 @@ export function useMapRealtime(mapId: string | undefined) {
                 const s = useMapStore.getState();
                 const line = recordToLine(e.record);
                 if (e.action === 'create') {
-                    if (!s.lines.some((l) => l.id === line.id)) s.addLine(line);
+                    if (!s.lines.some((l) => l.id === line.id)) s._remoteAddLine(line);
                 } else if (e.action === 'update') {
-                    s.updateLine(e.record.id, line);
+                    s._remoteUpdateLine(e.record.id, line);
                 } else if (e.action === 'delete') {
-                    s.deleteLine(e.record.id);
+                    s._remoteDeleteLine(e.record.id);
                 }
             })
         );

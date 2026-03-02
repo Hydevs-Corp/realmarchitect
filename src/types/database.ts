@@ -196,12 +196,12 @@ export interface DncWorldmapMemberRecord {
     id: string;
     map_id: string;
 
-    user_id: string;
+    user: string;
     role: 'owner' | 'member';
     created: string;
     updated: string;
     expand?: {
-        user_id?: { id: string; email: string; name?: string };
+        user?: { id: string; email: string; name?: string };
     };
 }
 

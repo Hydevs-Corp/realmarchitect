@@ -50,7 +50,7 @@ const CREATION_ACTIONS = [
 ];
 
 export const MapUIOverlay: React.FC = () => {
-    const { editMode, creationMode, setCreationMode, toggleEditMode, selectedElement, setSelectedElement, isElementsPanelOpen, setIsElementsPanelOpen } = useMapStore(
+    const { editMode, creationMode, setCreationMode, toggleEditMode, selectedElement, setSelectedElement, isElementsPanelOpen, setIsElementsPanelOpen, undo, redo } = useMapStore(
         useShallow((state) => ({
             editMode: state.editMode,
             creationMode: state.creationMode,
@@ -60,6 +60,8 @@ export const MapUIOverlay: React.FC = () => {
             setSelectedElement: state.setSelectedElement,
             isElementsPanelOpen: state.isElementsPanelOpen,
             setIsElementsPanelOpen: state.setIsElementsPanelOpen,
+            undo: state.undo,
+            redo: state.redo,
         }))
     );
 
@@ -77,6 +79,21 @@ export const MapUIOverlay: React.FC = () => {
         const onKeyDown = (e: KeyboardEvent) => {
             const tag = (e.target as HTMLElement).tagName;
             if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+            if (e.ctrlKey && e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    redo();
+                } else {
+                    undo();
+                }
+                return;
+            }
+            if (e.ctrlKey && e.key.toLowerCase() === 'y') {
+                e.preventDefault();
+                redo();
+                return;
+            }
 
             switch (e.key.toLowerCase()) {
                 case 'escape':
@@ -125,7 +142,7 @@ export const MapUIOverlay: React.FC = () => {
         };
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [creationMode, editMode, isElementsPanelOpen, selectedElement, setCreationMode, setIsElementsPanelOpen, setSelectedElement, toggleEditMode]);
+    }, [creationMode, editMode, isElementsPanelOpen, selectedElement, setCreationMode, setIsElementsPanelOpen, setSelectedElement, toggleEditMode, undo, redo]);
 
     return (
         <div
