@@ -67,7 +67,6 @@ function MemberRow({
     onRemove: () => void;
     onTransfer: () => void;
 }) {
-    console.log(member);
     return (
         <Group gap="xs">
             <Stack gap={0} style={{ flex: 1 }}>
