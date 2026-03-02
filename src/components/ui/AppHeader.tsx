@@ -62,36 +62,38 @@ export const AppHeader: React.FC = () => {
 
                         {pathname.startsWith('/map') && (
                             <Group flex={1} justify="space-between">
-                                <ActionIcon variant="light" onClick={() => navigate('/')}>
-                                    <IconArrowLeft />
-                                </ActionIcon>
-                                <div>
-                                    <Text fw={600}>{currentMap?.name || 'Carte'}</Text>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <Group gap={6} mr={8}>
-                                        {online.slice(0, 5).map((p) => (
-                                            <Tooltip key={p.id} label={p.name || p.email} withArrow>
-                                                <Avatar size={24} radius="xl">
-                                                    {p.name ? p.name[0].toUpperCase() : (p.email || '?')[0].toUpperCase()}
-                                                </Avatar>
-                                            </Tooltip>
-                                        ))}
-                                        {online.length > 5 && (
-                                            <Avatar size={24} radius="xl">
-                                                +{online.length - 5}
-                                            </Avatar>
-                                        )}
-                                    </Group>
-                                </div>
-                                <Tooltip label="Export / Import" withArrow>
-                                    <ActionIcon variant="light" onClick={() => setExportImportOpen(true)}>
-                                        <IconFileExport />
+                                <Group>
+                                    <ActionIcon variant="light" onClick={() => navigate('/')}>
+                                        <IconArrowLeft />
                                     </ActionIcon>
-                                </Tooltip>
-                                <ActionIcon size="sm" onClick={onOpenSettings}>
-                                    <IconSettings />
-                                </ActionIcon>
+                                    <Text fw={600}>{currentMap?.name || 'Map'}</Text>
+                                </Group>
+                                <Group>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <Group gap={6} mr={8}>
+                                            {online.slice(0, 5).map((p) => (
+                                                <Tooltip key={p.id} label={p.name || p.email} withArrow>
+                                                    <Avatar size={24} radius="xl">
+                                                        {p.name ? p.name[0].toUpperCase() : (p.email || '?')[0].toUpperCase()}
+                                                    </Avatar>
+                                                </Tooltip>
+                                            ))}
+                                            {online.length > 5 && (
+                                                <Avatar size={24} radius="xl">
+                                                    +{online.length - 5}
+                                                </Avatar>
+                                            )}
+                                        </Group>
+                                    </div>
+                                    <Tooltip label="Export / Import" withArrow>
+                                        <ActionIcon variant="light" onClick={() => setExportImportOpen(true)}>
+                                            <IconFileExport />
+                                        </ActionIcon>
+                                    </Tooltip>
+                                    <ActionIcon size="sm" onClick={onOpenSettings}>
+                                        <IconSettings />
+                                    </ActionIcon>
+                                </Group>
                             </Group>
                         )}
 
