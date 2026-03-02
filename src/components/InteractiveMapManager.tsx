@@ -8,7 +8,7 @@ export const InteractiveMapManager: React.FC = () => {
             style={{
                 position: 'relative',
                 width: '100vw',
-                height: '100vh',
+                height: 'calc(100svh - var(--app-shell-header-height))',
                 overflow: 'hidden',
             }}
         >

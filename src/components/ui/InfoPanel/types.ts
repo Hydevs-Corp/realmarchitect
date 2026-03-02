@@ -5,7 +5,7 @@ export const PANEL_CONTAINER_STYLE: CSSProperties = {
     top: 0,
     right: 0,
     width: 350,
-    height: '100vh',
+    height: 'calc(100svh - var(--app-shell-header-height))',
     pointerEvents: 'auto',
     zIndex: 0,
     display: 'flex',

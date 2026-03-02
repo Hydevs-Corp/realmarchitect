@@ -34,6 +34,7 @@ import {
     updateBackground as apiUpdateBackground,
     updateLine as apiUpdateLine,
 } from '../../lib/api';
+import { setStageRef } from '../../lib/stageRef';
 
 const MIDDLE_BUTTON = 1;
 const RIGHT_BUTTON = 2;
@@ -172,6 +173,7 @@ const BackgroundItem: React.FC<{
                 height={background.height}
                 perfectDrawEnabled={false}
                 draggable={editMode}
+                exportUrl={background.imageUrl}
                 onClick={(e) => {
                     if (e.evt.button === 0) {
                         onSelect(e.evt.shiftKey);
@@ -675,6 +677,12 @@ const LineItem: React.FC<{
 
 export const KonvaEngine: React.FC = () => {
     const stageRef = useRef<Konva.Stage>(null);
+
+    useEffect(() => {
+        if (stageRef.current) setStageRef(stageRef.current);
+        return () => setStageRef(null);
+    }, []);
+
     const {
         backgrounds,
         pois,

@@ -1,17 +1,6 @@
 import React from 'react';
 import { ActionIcon, Badge, Group, Text, Tooltip } from '@mantine/core';
-import {
-    IconEye,
-    IconEyeOff,
-    IconFilter,
-    IconFilterOff,
-    IconFocus2,
-    IconLock,
-    IconLockOpen,
-    IconPin,
-    IconPinFilled,
-    IconX,
-} from '@tabler/icons-react';
+import { IconCopy, IconCopyPlus, IconEye, IconEyeOff, IconFilter, IconFilterOff, IconFocus2, IconLock, IconLockOpen, IconPin, IconPinFilled, IconX } from '@tabler/icons-react';
 import { mainColor } from '../../../constants';
 import { HEADER_STYLE } from './types';
 
@@ -30,6 +19,8 @@ interface InfoPanelHeaderProps {
     onTogglePinned: () => void;
     onViewElements: () => void;
     onClearFilter: () => void;
+    onCopy: () => void;
+    onDuplicate: () => void;
     onClose: () => void;
 }
 
@@ -48,6 +39,8 @@ export const InfoPanelHeader: React.FC<InfoPanelHeaderProps> = ({
     onTogglePinned,
     onViewElements,
     onClearFilter,
+    onCopy,
+    onDuplicate,
     onClose,
 }) => (
     <Group px="md" py="sm" justify="space-between" align="center" style={HEADER_STYLE}>
@@ -72,42 +65,52 @@ export const InfoPanelHeader: React.FC<InfoPanelHeaderProps> = ({
             </Badge>
         </Group>
         <Group gap={2} style={{ flexShrink: 0 }}>
+            <Tooltip label="Copy (Ctrl+C)" withArrow openDelay={400}>
+                <ActionIcon size="sm" variant="subtle" color="gray" onClick={onCopy}>
+                    <IconCopy />
+                </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Duplicate (Ctrl+D)" withArrow openDelay={400}>
+                <ActionIcon size="sm" variant="subtle" color="gray" onClick={onDuplicate}>
+                    <IconCopyPlus />
+                </ActionIcon>
+            </Tooltip>
             <Tooltip label="Center view" withArrow openDelay={400}>
                 <ActionIcon size="sm" variant="subtle" color={mainColor} onClick={onFocus}>
-                    <IconFocus2 size={14} />
+                    <IconFocus2 />
                 </ActionIcon>
             </Tooltip>
             <Tooltip label={isHidden ? 'Show' : 'Hide'} withArrow openDelay={400}>
                 <ActionIcon size="sm" variant={isHidden ? 'light' : 'subtle'} color={isHidden ? 'gray' : mainColor} onClick={onToggleHidden}>
-                    {isHidden ? <IconEyeOff size={14} /> : <IconEye size={14} />}
+                    {isHidden ? <IconEyeOff /> : <IconEye />}
                 </ActionIcon>
             </Tooltip>
             <Tooltip label={isLocked ? 'Unlock' : 'Lock'} withArrow openDelay={400}>
                 <ActionIcon size="sm" variant={isLocked ? 'light' : 'subtle'} color={isLocked ? 'orange' : 'gray'} onClick={onToggleLocked}>
-                    {isLocked ? <IconLock size={14} /> : <IconLockOpen size={14} />}
+                    {isLocked ? <IconLock /> : <IconLockOpen />}
                 </ActionIcon>
             </Tooltip>
             <Tooltip label={isPinned ? 'Unpin' : 'Pin'} withArrow openDelay={400}>
                 <ActionIcon size="sm" variant={isPinned ? 'light' : 'subtle'} color={isPinned ? 'orange' : 'gray'} onClick={onTogglePinned}>
-                    {isPinned ? <IconPinFilled size={14} /> : <IconPin size={14} />}
+                    {isPinned ? <IconPinFilled /> : <IconPin />}
                 </ActionIcon>
             </Tooltip>
             {kind === 'zone' &&
                 (activeZoneFilterId ? (
                     <Tooltip label="Exit filter" withArrow openDelay={400}>
                         <ActionIcon size="sm" variant="subtle" color="gray" onClick={onClearFilter}>
-                            <IconFilterOff size={14} />
+                            <IconFilterOff />
                         </ActionIcon>
                     </Tooltip>
                 ) : (
                     <Tooltip label="See elements in zone" withArrow openDelay={400}>
                         <ActionIcon size="sm" variant="subtle" color="blue" onClick={onViewElements}>
-                            <IconFilter size={14} />
+                            <IconFilter />
                         </ActionIcon>
                     </Tooltip>
                 ))}
             <ActionIcon size="sm" variant="subtle" color="gray" onClick={onClose}>
-                <IconX size={14} />
+                <IconX />
             </ActionIcon>
         </Group>
     </Group>

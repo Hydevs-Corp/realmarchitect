@@ -59,7 +59,7 @@ export default function AssetPicker({ opened, onClose, onSelect }: AssetPickerPr
     });
 
     return (
-        <Modal opened={opened} onClose={onClose} title="Choose an asset" size="100%" styles={{ content: { height: '100vh' } }}>
+        <Modal opened={opened} onClose={onClose} title="Choose an asset" size="100%" styles={{ content: { height: '100svh' } }}>
             {loading ? (
                 <Center style={{ height: 300 }}>
                     <Loader />

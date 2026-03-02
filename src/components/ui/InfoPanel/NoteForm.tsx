@@ -72,7 +72,10 @@ export const NoteForm: React.FC<NoteFormProps> = ({ id, onDeleted }) => {
     };
 
     const handleDelete = async () => {
-        if (!confirmDelete) { setConfirmDelete(true); return; }
+        if (!confirmDelete) {
+            setConfirmDelete(true);
+            return;
+        }
         deleteNote(id);
         await apiDeleteNote(id);
         onDeleted();
@@ -81,15 +84,7 @@ export const NoteForm: React.FC<NoteFormProps> = ({ id, onDeleted }) => {
     return (
         <>
             <Textarea label="Content" value={formContent} onChange={(e) => setFormContent(e.currentTarget.value)} size="sm" autosize minRows={4} maxRows={12} />
-            <NumberInput
-                label="Font size"
-                value={formNoteFontSize}
-                onChange={(v) => setFormNoteFontSize(typeof v === 'number' ? v : 14)}
-                min={8}
-                max={72}
-                step={1}
-                size="sm"
-            />
+            <NumberInput label="Font size" value={formNoteFontSize} onChange={(v) => setFormNoteFontSize(typeof v === 'number' ? v : 14)} min={8} max={72} step={1} size="sm" />
             <ColorInput
                 label="Background color"
                 value={formNoteBgColor}
@@ -112,15 +107,10 @@ export const NoteForm: React.FC<NoteFormProps> = ({ id, onDeleted }) => {
                 placeholder="Auto"
             />
             <NumberInput label="Order (z-index)" value={formZIndex} onChange={(v) => setFormZIndex(typeof v === 'number' ? v : 0)} min={0} step={1} size="sm" />
-            <Switch
-                label="Comment (link to your account)"
-                checked={formNoteIsComment}
-                onChange={(e) => setFormNoteIsComment(e.currentTarget.checked)}
-                size="sm"
-            />
+            <Switch label="Comment (link to your account)" checked={formNoteIsComment} onChange={(e) => setFormNoteIsComment(e.currentTarget.checked)} size="sm" />
 
             <Box>
-                <Button fullWidth size="sm" variant="filled" leftSection={<IconCheck size={14} />} loading={saving} disabled={!isDirty} onClick={handleSave}>
+                <Button fullWidth size="sm" variant="filled" leftSection={<IconCheck />} loading={saving} disabled={!isDirty} onClick={handleSave}>
                     Save
                 </Button>
             </Box>
@@ -131,7 +121,7 @@ export const NoteForm: React.FC<NoteFormProps> = ({ id, onDeleted }) => {
                 <DeleteConfirm onDelete={handleDelete} onCancel={() => setConfirmDelete(false)} />
             ) : (
                 <Box>
-                    <Button fullWidth size="sm" variant="subtle" color="red" leftSection={<IconTrash size={14} />} onClick={() => setConfirmDelete(true)}>
+                    <Button fullWidth size="sm" variant="subtle" color="red" leftSection={<IconTrash />} onClick={() => setConfirmDelete(true)}>
                         Delete
                     </Button>
                 </Box>

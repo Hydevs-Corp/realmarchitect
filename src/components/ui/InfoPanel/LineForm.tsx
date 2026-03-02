@@ -297,7 +297,7 @@ export const LineForm: React.FC<LineFormProps> = ({ id, onDeleted }) => {
             <NumberInput label="Order (z-index)" value={formZIndex} onChange={(v) => setFormZIndex(typeof v === 'number' ? v : 0)} min={0} step={1} size="sm" />
 
             <Box>
-                <Button fullWidth size="sm" variant="filled" leftSection={<IconCheck size={14} />} loading={saving} disabled={!isDirty} onClick={handleSave}>
+                <Button fullWidth size="sm" variant="filled" leftSection={<IconCheck />} loading={saving} disabled={!isDirty} onClick={handleSave}>
                     Save
                 </Button>
             </Box>
@@ -308,7 +308,7 @@ export const LineForm: React.FC<LineFormProps> = ({ id, onDeleted }) => {
                 <DeleteConfirm onDelete={handleDelete} onCancel={() => setConfirmDelete(false)} />
             ) : (
                 <Box>
-                    <Button fullWidth size="sm" variant="subtle" color="red" leftSection={<IconTrash size={14} />} onClick={() => setConfirmDelete(true)}>
+                    <Button fullWidth size="sm" variant="subtle" color="red" leftSection={<IconTrash />} onClick={() => setConfirmDelete(true)}>
                         Delete
                     </Button>
                 </Box>

@@ -1,12 +1,13 @@
 import { Hypb, logoutPB, useAuthContext } from '@hydevs/hypb';
 import { ActionIcon, AppShell, Avatar, Button, Group, Tooltip, Menu, Text, Title } from '@mantine/core';
-import { IconArrowLeft, IconChevronDown, IconSettings, IconUserCircle } from '@tabler/icons-react';
+import { IconArrowLeft, IconChevronDown, IconFileExport, IconSettings, IconUserCircle } from '@tabler/icons-react';
 import React, { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
 import { useCreateMapModal } from '../../hooks/useCreateMapModal';
 import useMapPresence from '../../hooks/useMapPresence';
 import { useMapStore } from '../../store/useMapStore';
 import { MapSettingsModal } from './MapSettingsModal';
+import { ExportImportModal } from './ExportImportModal';
 import { mainColor } from '../../constants';
 
 export const AppHeader: React.FC = () => {
@@ -20,6 +21,7 @@ export const AppHeader: React.FC = () => {
     const { online } = useMapPresence(currentMap?.id);
 
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [exportImportOpen, setExportImportOpen] = useState(false);
 
     const onLogout = () => {
         logoutPB();
@@ -82,9 +84,14 @@ export const AppHeader: React.FC = () => {
                                         )}
                                     </Group>
                                 </div>
-                                <Button leftSection={<IconSettings size={16} />} size="sm" onClick={onOpenSettings}>
-                                    Settings
-                                </Button>
+                                <Tooltip label="Export / Import" withArrow>
+                                    <ActionIcon variant="light" onClick={() => setExportImportOpen(true)}>
+                                        <IconFileExport />
+                                    </ActionIcon>
+                                </Tooltip>
+                                <ActionIcon size="sm" onClick={onOpenSettings}>
+                                    <IconSettings />
+                                </ActionIcon>
                             </Group>
                         )}
 
@@ -93,10 +100,10 @@ export const AppHeader: React.FC = () => {
                                 <Menu.Target>
                                     <Button
                                         variant="default"
-                                        rightSection={<IconChevronDown size={14} />}
+                                        rightSection={<IconChevronDown />}
                                         leftSection={
                                             <Avatar size={20} radius="xl" color={mainColor}>
-                                                <IconUserCircle size={14} />
+                                                <IconUserCircle />
                                             </Avatar>
                                         }
                                     >
@@ -126,6 +133,7 @@ export const AppHeader: React.FC = () => {
                     onOwnershipTransferred={() => setSettingsOpen(false)}
                 />
             )}
+            {currentMap && <ExportImportModal opened={exportImportOpen} onClose={() => setExportImportOpen(false)} />}
         </>
     );
 };

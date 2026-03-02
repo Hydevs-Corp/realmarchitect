@@ -32,6 +32,8 @@ export const InfoPanel: React.FC = () => {
         setCenterTarget,
         activeZoneFilterId,
         setActiveZoneFilter,
+        copySelected,
+        duplicateSelected,
     } = useMapStore(
         useShallow((state) => ({
             selectedElement: state.selectedElement,
@@ -48,6 +50,8 @@ export const InfoPanel: React.FC = () => {
             setCenterTarget: state.setCenterTarget,
             activeZoneFilterId: state.activeZoneFilterId,
             setActiveZoneFilter: state.setActiveZoneFilter,
+            copySelected: state.copySelected,
+            duplicateSelected: state.duplicateSelected,
         }))
     );
 
@@ -146,6 +150,8 @@ export const InfoPanel: React.FC = () => {
                 onTogglePinned={() => toggleElementPinned(id)}
                 onViewElements={() => setActiveZoneFilter(id)}
                 onClearFilter={() => setActiveZoneFilter(null)}
+                onCopy={copySelected}
+                onDuplicate={() => { void duplicateSelected(); }}
                 onClose={() => setSelectedElement(null)}
             />
 

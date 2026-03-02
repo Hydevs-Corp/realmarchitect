@@ -88,9 +88,9 @@ function ElementRow({
             <Group gap="xs" wrap="nowrap" justify="space-between">
                 <Group gap="xs" wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
                     {color ? (
-                        <ColorSwatch color={color} size={14} style={{ flexShrink: 0 }} />
+                        <ColorSwatch color={color} style={{ flexShrink: 0 }} />
                     ) : (
-                        <ThemeIcon size={16} variant="transparent" color="gray">
+                        <ThemeIcon variant="transparent" color="gray">
                             {icon}
                         </ThemeIcon>
                     )}
@@ -933,7 +933,7 @@ export function ElementsPanel() {
                                             color={typeFilters.has('background') ? 'violet' : 'gray'}
                                             onClick={() => toggleTypeFilter('background')}
                                         >
-                                            <IconMap size={14} />
+                                            <IconMap />
                                         </ActionIcon>
                                     </Tooltip>
                                     <Tooltip label={`Zones (${zones.length})`}>
@@ -943,7 +943,7 @@ export function ElementsPanel() {
                                             color={typeFilters.has('zone') ? 'violet' : 'gray'}
                                             onClick={() => toggleTypeFilter('zone')}
                                         >
-                                            <IconPolygon size={14} />
+                                            <IconPolygon />
                                         </ActionIcon>
                                     </Tooltip>
                                     <Tooltip label={`POIs (${pois.length})`}>
@@ -953,7 +953,7 @@ export function ElementsPanel() {
                                             color={typeFilters.has('poi') ? 'violet' : 'gray'}
                                             onClick={() => toggleTypeFilter('poi')}
                                         >
-                                            <IconMapPin size={14} />
+                                            <IconMapPin />
                                         </ActionIcon>
                                     </Tooltip>
                                     <Tooltip label={`Notes (${notes.length})`}>
@@ -963,7 +963,7 @@ export function ElementsPanel() {
                                             color={typeFilters.has('note') ? 'violet' : 'gray'}
                                             onClick={() => toggleTypeFilter('note')}
                                         >
-                                            <IconNote size={14} />
+                                            <IconNote />
                                         </ActionIcon>
                                     </Tooltip>
                                     <Tooltip label={`Traits (${lines.length})`}>
@@ -973,7 +973,7 @@ export function ElementsPanel() {
                                             color={typeFilters.has('line') ? 'violet' : 'gray'}
                                             onClick={() => toggleTypeFilter('line')}
                                         >
-                                            <IconLine size={14} />
+                                            <IconLine />
                                         </ActionIcon>
                                     </Tooltip>
 
@@ -986,7 +986,7 @@ export function ElementsPanel() {
                                             color={stateFilters.has('visible') ? mainColor : 'gray'}
                                             onClick={() => toggleStateFilter('visible')}
                                         >
-                                            <IconEye size={14} />
+                                            <IconEye />
                                         </ActionIcon>
                                     </Tooltip>
                                     <Tooltip label="Hidden only">
@@ -996,7 +996,7 @@ export function ElementsPanel() {
                                             color={stateFilters.has('hidden') ? 'red' : 'gray'}
                                             onClick={() => toggleStateFilter('hidden')}
                                         >
-                                            <IconEyeOff size={14} />
+                                            <IconEyeOff />
                                         </ActionIcon>
                                     </Tooltip>
                                     <Tooltip label="Locked only">
@@ -1006,7 +1006,7 @@ export function ElementsPanel() {
                                             color={stateFilters.has('locked') ? 'orange' : 'gray'}
                                             onClick={() => toggleStateFilter('locked')}
                                         >
-                                            <IconLock size={14} />
+                                            <IconLock />
                                         </ActionIcon>
                                     </Tooltip>
                                     <Tooltip label="Pinned only">
@@ -1016,7 +1016,7 @@ export function ElementsPanel() {
                                             color={stateFilters.has('pinned') ? 'orange' : 'gray'}
                                             onClick={() => toggleStateFilter('pinned')}
                                         >
-                                            <IconPin size={14} />
+                                            <IconPin />
                                         </ActionIcon>
                                     </Tooltip>
                                 </Group>

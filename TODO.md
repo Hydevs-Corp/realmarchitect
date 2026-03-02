@@ -1,7 +1,7 @@
 1. Global history / undo‑redo [DONE]
    Undo currently only applies to drawing. Extend to all modifications (POIs, zones, lines, groups) with a full stack.
 
-2. Export & import
+2. Export & import [DONE]
    a) Export the map (current view or full extent) to PNG/SVG/PDF.
    b) Import/clear a JSON file (backup, template, sharing).
 

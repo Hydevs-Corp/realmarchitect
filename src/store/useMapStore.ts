@@ -16,6 +16,10 @@ import {
     createDrawingStroke,
     deleteDrawingStroke,
     clearMapDrawingStrokes,
+    createPOI as apiCreatePOI,
+    createZone as apiCreateZone,
+    createNote as apiCreateNote,
+    createLine as apiCreateLine,
     updatePOI as apiUpdatePOI,
     updateZone as apiUpdateZone,
     updateNote as apiUpdateNote,
@@ -32,6 +36,13 @@ import {
     recreateBackground as apiRecreateBackground,
     recreateLine as apiRecreateLine,
 } from '../lib/api';
+
+export interface ClipboardPayload {
+    pois: POI[];
+    zones: Zone[];
+    notes: TextNote[];
+    lines: MapLine[];
+}
 
 const MAX_HISTORY = 100;
 
@@ -238,6 +249,11 @@ interface MapState {
     _remoteDeleteGroup: (id: string) => void;
 
     resetMapData: () => void;
+
+    clipboard: ClipboardPayload | null;
+    copySelected: () => void;
+    paste: (offsetX?: number, offsetY?: number) => Promise<void>;
+    duplicateSelected: () => Promise<void>;
 }
 
 export const useMapStore = create<MapState>((set, get) => ({
@@ -285,6 +301,8 @@ export const useMapStore = create<MapState>((set, get) => ({
 
     undoStack: [],
     redoStack: [],
+
+    clipboard: null,
 
     drawingLayer: {
         hidden: false,
@@ -949,4 +967,96 @@ export const useMapStore = create<MapState>((set, get) => ({
         })),
 
     clearMultiSelect: () => set({ multiSelectedIds: [] }),
+
+    copySelected: () => {
+        const state = get();
+        const ids = new Set<string>();
+        if (state.selectedElement && state.selectedElement.kind !== 'drawing') ids.add(state.selectedElement.id);
+        state.multiSelectedIds.forEach((id) => ids.add(id));
+        if (ids.size === 0) return;
+        const payload: ClipboardPayload = {
+            pois: state.pois.filter((p) => ids.has(p.id)),
+            zones: state.zones.filter((z) => ids.has(z.id)),
+            notes: state.notes.filter((n) => ids.has(n.id)),
+            lines: state.lines.filter((l) => ids.has(l.id)),
+        };
+        const total = payload.pois.length + payload.zones.length + payload.notes.length + payload.lines.length;
+        if (total > 0) set({ clipboard: payload });
+    },
+
+    paste: async (offsetX = 20, offsetY = 20) => {
+        const state = get();
+        const { clipboard, currentMap } = state;
+        if (!clipboard || !currentMap) return;
+
+        const newPois: POI[] = [];
+        const newZones: Zone[] = [];
+        const newNotes: TextNote[] = [];
+        const newLines: MapLine[] = [];
+
+        for (const p of clipboard.pois) {
+            try {
+                const created = await apiCreatePOI({ ...p, mapId: currentMap.id, x: p.x + offsetX, y: p.y + offsetY });
+                newPois.push(created);
+            } catch {
+                /* skip */
+            }
+        }
+        for (const z of clipboard.zones) {
+            try {
+                const newPoints = z.points.map((v, i) => (i % 2 === 0 ? v + offsetX : v + offsetY));
+                const created = await apiCreateZone({ ...z, mapId: currentMap.id, points: newPoints });
+                newZones.push(created);
+            } catch {
+                /* skip */
+            }
+        }
+        for (const n of clipboard.notes) {
+            try {
+                const created = await apiCreateNote({ ...n, mapId: currentMap.id, x: n.x + offsetX, y: n.y + offsetY });
+                newNotes.push(created);
+            } catch {
+                /* skip */
+            }
+        }
+        for (const l of clipboard.lines) {
+            try {
+                const created = await apiCreateLine({
+                    ...l,
+                    mapId: currentMap.id,
+                    x: l.x + offsetX,
+                    y: l.y + offsetY,
+                    bx: l.bx + offsetX,
+                    by: l.by + offsetY,
+                    cx: l.cx !== undefined ? l.cx + offsetX : undefined,
+                    cy: l.cy !== undefined ? l.cy + offsetY : undefined,
+
+                    aAttachedId: undefined,
+                    aAttachedKind: undefined,
+                    bAttachedId: undefined,
+                    bAttachedKind: undefined,
+                });
+                newLines.push(created);
+            } catch {
+                /* skip */
+            }
+        }
+
+        set((s) => {
+            const pois = [...s.pois, ...newPois];
+            const zones = [...s.zones, ...newZones];
+            const notes = [...s.notes, ...newNotes];
+            const lines = [...s.lines, ...newLines];
+            const entry: HistoryEntry = {
+                before: { pois: s.pois, zones: s.zones, notes: s.notes, lines: s.lines },
+                after: { pois, zones, notes, lines },
+            };
+            return { pois, zones, notes, lines, undoStack: pushHistory(s.undoStack, entry), redoStack: [] };
+        });
+    },
+
+    duplicateSelected: async () => {
+        get().copySelected();
+        await get().paste(20, 20);
+    },
 }));

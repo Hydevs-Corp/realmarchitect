@@ -138,7 +138,7 @@ export const MapSpotlight: React.FC = () => {
                                                 </Text>
                                             )}
                                         </div>
-                                        <IconMapPin size={14} style={{ flexShrink: 0, opacity: 0.4 }} />
+                                        <IconMapPin style={{ flexShrink: 0, opacity: 0.4 }} />
                                     </Group>
                                 </Spotlight.Action>
                             );
@@ -179,7 +179,7 @@ export const MapSpotlight: React.FC = () => {
                                                 </Text>
                                             )}
                                         </div>
-                                        <IconPolygon size={14} style={{ flexShrink: 0, opacity: 0.4 }} />
+                                        <IconPolygon style={{ flexShrink: 0, opacity: 0.4 }} />
                                     </Group>
                                 </Spotlight.Action>
                             );
@@ -214,7 +214,7 @@ export const MapSpotlight: React.FC = () => {
                                             {note.content.length > 60 ? '…' : ''}
                                         </Text>
                                     </div>
-                                    <IconNote size={14} style={{ flexShrink: 0, opacity: 0.4 }} />
+                                    <IconNote style={{ flexShrink: 0, opacity: 0.4 }} />
                                 </Group>
                             </Spotlight.Action>
                         ))}
@@ -244,7 +244,7 @@ export const MapSpotlight: React.FC = () => {
                                             {bg.width}×{bg.height} px
                                         </Text>
                                     </div>
-                                    <IconMap size={14} style={{ flexShrink: 0, opacity: 0.4 }} />
+                                    <IconMap style={{ flexShrink: 0, opacity: 0.4 }} />
                                 </Group>
                             </Spotlight.Action>
                         ))}
@@ -283,7 +283,7 @@ export const MapSpotlight: React.FC = () => {
                                             ({line.x.toFixed(0)}, {line.y.toFixed(0)}) → ({line.bx.toFixed(0)}, {line.by.toFixed(0)})
                                         </Text>
                                     </div>
-                                    <IconLine size={14} style={{ flexShrink: 0, opacity: 0.4 }} />
+                                    <IconLine style={{ flexShrink: 0, opacity: 0.4 }} />
                                 </Group>
                             </Spotlight.Action>
                         ))}

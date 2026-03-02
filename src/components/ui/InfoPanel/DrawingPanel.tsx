@@ -47,16 +47,16 @@ export const DrawingPanel: React.FC = () => {
                 <Group gap={2}>
                     <Tooltip label={drawingLayer.hidden ? 'Show' : 'Hide'} withArrow openDelay={400}>
                         <ActionIcon size="sm" variant={drawingLayer.hidden ? 'light' : 'subtle'} color={mainColor} onClick={() => setDrawingLayerHidden(!drawingLayer.hidden)}>
-                            {drawingLayer.hidden ? <IconEyeOff size={14} /> : <IconEye size={14} />}
+                            {drawingLayer.hidden ? <IconEyeOff /> : <IconEye />}
                         </ActionIcon>
                     </Tooltip>
                     <Tooltip label={drawingLayer.locked ? 'Unlock' : 'Lock'} withArrow openDelay={400}>
                         <ActionIcon size="sm" variant={drawingLayer.locked ? 'light' : 'subtle'} color="orange" onClick={() => setDrawingLayerLocked(!drawingLayer.locked)}>
-                            {drawingLayer.locked ? <IconLock size={14} /> : <IconLockOpen size={14} />}
+                            {drawingLayer.locked ? <IconLock /> : <IconLockOpen />}
                         </ActionIcon>
                     </Tooltip>
                     <ActionIcon size="sm" variant="subtle" onClick={() => setSelectedElement(null)}>
-                        <IconX size={14} />
+                        <IconX />
                     </ActionIcon>
                 </Group>
             </Group>
@@ -80,7 +80,7 @@ export const DrawingPanel: React.FC = () => {
                     <Group gap="xs">
                         <Tooltip label="Pen (thin line, opaque)" withArrow>
                             <ActionIcon size="lg" variant={drawingLayer.activeTool === 'pen' ? 'filled' : 'default'} color={mainColor} onClick={() => setDrawingLayerTool('pen')}>
-                                <IconPencil size={16} />
+                                <IconPencil />
                             </ActionIcon>
                         </Tooltip>
                         <Tooltip label="Marker (semi-transparent)" withArrow>
@@ -90,7 +90,7 @@ export const DrawingPanel: React.FC = () => {
                                 color={mainColor}
                                 onClick={() => setDrawingLayerTool('marker')}
                             >
-                                <IconPencilPause size={16} />
+                                <IconPencilPause />
                             </ActionIcon>
                         </Tooltip>
                         <Tooltip label="Eraser" withArrow>
@@ -100,7 +100,7 @@ export const DrawingPanel: React.FC = () => {
                                 color="orange"
                                 onClick={() => setDrawingLayerTool('eraser')}
                             >
-                                <IconEraser size={16} />
+                                <IconEraser />
                             </ActionIcon>
                         </Tooltip>
                     </Group>
@@ -130,10 +130,10 @@ export const DrawingPanel: React.FC = () => {
                 <Divider />
 
                 <Stack gap="xs">
-                    <Button variant="light" color={mainColor} leftSection={<IconArrowBackUp size={14} />} size="xs" disabled={undoStack.length === 0} onClick={undo}>
+                    <Button variant="light" color={mainColor} leftSection={<IconArrowBackUp />} size="xs" disabled={undoStack.length === 0} onClick={undo}>
                         Undo ({undoStack.length})
                     </Button>
-                    <Button variant="light" color="red" leftSection={<IconTrashX size={14} />} size="xs" disabled={drawingLayer.strokes.length === 0} onClick={clearDrawStrokes}>
+                    <Button variant="light" color="red" leftSection={<IconTrashX />} size="xs" disabled={drawingLayer.strokes.length === 0} onClick={clearDrawStrokes}>
                         Clear all
                     </Button>
                 </Stack>

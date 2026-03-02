@@ -66,7 +66,7 @@ export function JoinPage() {
 
     if (state === 'loading' || authLoading) {
         return (
-            <Center h="100vh">
+            <Center h="calc(100svh - var(--app-shell-header-height))">
                 <Loader size="xl" />
             </Center>
         );

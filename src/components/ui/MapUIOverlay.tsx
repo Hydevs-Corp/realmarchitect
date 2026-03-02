@@ -50,7 +50,21 @@ const CREATION_ACTIONS = [
 ];
 
 export const MapUIOverlay: React.FC = () => {
-    const { editMode, creationMode, setCreationMode, toggleEditMode, selectedElement, setSelectedElement, isElementsPanelOpen, setIsElementsPanelOpen, undo, redo } = useMapStore(
+    const {
+        editMode,
+        creationMode,
+        setCreationMode,
+        toggleEditMode,
+        selectedElement,
+        setSelectedElement,
+        isElementsPanelOpen,
+        setIsElementsPanelOpen,
+        undo,
+        redo,
+        copySelected,
+        paste,
+        duplicateSelected,
+    } = useMapStore(
         useShallow((state) => ({
             editMode: state.editMode,
             creationMode: state.creationMode,
@@ -62,6 +76,9 @@ export const MapUIOverlay: React.FC = () => {
             setIsElementsPanelOpen: state.setIsElementsPanelOpen,
             undo: state.undo,
             redo: state.redo,
+            copySelected: state.copySelected,
+            paste: state.paste,
+            duplicateSelected: state.duplicateSelected,
         }))
     );
 
@@ -92,6 +109,21 @@ export const MapUIOverlay: React.FC = () => {
             if (e.ctrlKey && e.key.toLowerCase() === 'y') {
                 e.preventDefault();
                 redo();
+                return;
+            }
+            if (e.ctrlKey && e.key.toLowerCase() === 'c') {
+                e.preventDefault();
+                copySelected();
+                return;
+            }
+            if (e.ctrlKey && e.key.toLowerCase() === 'v') {
+                e.preventDefault();
+                void paste();
+                return;
+            }
+            if (e.ctrlKey && e.key.toLowerCase() === 'd') {
+                e.preventDefault();
+                void duplicateSelected();
                 return;
             }
 
@@ -142,7 +174,21 @@ export const MapUIOverlay: React.FC = () => {
         };
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [creationMode, editMode, isElementsPanelOpen, selectedElement, setCreationMode, setIsElementsPanelOpen, setSelectedElement, toggleEditMode, undo, redo]);
+    }, [
+        creationMode,
+        editMode,
+        isElementsPanelOpen,
+        selectedElement,
+        setCreationMode,
+        setIsElementsPanelOpen,
+        setSelectedElement,
+        toggleEditMode,
+        undo,
+        redo,
+        copySelected,
+        paste,
+        duplicateSelected,
+    ]);
 
     return (
         <div
@@ -151,7 +197,7 @@ export const MapUIOverlay: React.FC = () => {
                 top: 0,
                 left: 0,
                 width: '100vw',
-                height: '100vh',
+                height: 'calc(100svh - var(--app-shell-header-height))',
                 pointerEvents: 'none',
                 zIndex: 1000,
             }}

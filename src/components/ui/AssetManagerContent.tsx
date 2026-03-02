@@ -152,7 +152,7 @@ export function AssetManagerContent() {
 
                     <Tabs.Panel value="assets" pt="md">
                         <Group align="right" mb="sm">
-                            <Button leftSection={<IconPlus size={14} />} onClick={handleCreateAsset}>
+                            <Button leftSection={<IconPlus />} onClick={handleCreateAsset}>
                                 Ajouter
                             </Button>
                         </Group>
@@ -178,10 +178,10 @@ export function AssetManagerContent() {
                                         <td>
                                             <Group gap="xs" align="right">
                                                 <ActionIcon onClick={() => handleEditAsset(a)}>
-                                                    <IconEdit size={16} />
+                                                    <IconEdit />
                                                 </ActionIcon>
                                                 <ActionIcon color="red" onClick={() => handleDeleteAsset(a)}>
-                                                    <IconTrash size={16} />
+                                                    <IconTrash />
                                                 </ActionIcon>
                                             </Group>
                                         </td>
@@ -193,7 +193,7 @@ export function AssetManagerContent() {
 
                     <Tabs.Panel value="categories" pt="md">
                         <Group align="right" mb="sm">
-                            <Button leftSection={<IconPlus size={14} />} onClick={handleCreateCategory}>
+                            <Button leftSection={<IconPlus />} onClick={handleCreateCategory}>
                                 Ajouter
                             </Button>
                         </Group>
@@ -211,10 +211,10 @@ export function AssetManagerContent() {
                                         <td>
                                             <Group gap="xs" align="right">
                                                 <ActionIcon onClick={() => handleEditCategory(c)}>
-                                                    <IconEdit size={16} />
+                                                    <IconEdit />
                                                 </ActionIcon>
                                                 <ActionIcon color="red" onClick={() => handleDeleteCategory(c)}>
-                                                    <IconTrash size={16} />
+                                                    <IconTrash />
                                                 </ActionIcon>
                                             </Group>
                                         </td>

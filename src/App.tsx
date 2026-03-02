@@ -136,21 +136,21 @@ export default function App() {
                                         borderTop: '1px solid var(--mantine-color-default-border)',
                                     }}
                                 >
-                                    <Button variant="subtle" size="xs" leftSection={<IconMap size={14} />} component={NavLink} to={`/map/${map.id}`}>
+                                    <Button variant="subtle" size="xs" leftSection={<IconMap />} component={NavLink} to={`/map/${map.id}`}>
                                         Open
                                     </Button>
 
                                     <Group gap={4} ml="auto">
                                         <ActionIcon variant="subtle" color="gray" onClick={() => setSettingsMap(map)} title="Settings & Members">
-                                            <IconSettings size={16} />
+                                            <IconSettings />
                                         </ActionIcon>
                                         {isOwner(map) && (
                                             <>
                                                 <ActionIcon variant="subtle" color="gray" onClick={() => handleEdit(map)} title="Edit">
-                                                    <IconEdit size={16} />
+                                                    <IconEdit />
                                                 </ActionIcon>
                                                 <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(map)} title="Delete">
-                                                    <IconTrash size={16} />
+                                                    <IconTrash />
                                                 </ActionIcon>
                                             </>
                                         )}

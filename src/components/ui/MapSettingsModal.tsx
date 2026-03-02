@@ -38,13 +38,13 @@ function InviteRow({ invite, canDelete, onDelete }: { invite: MapInvite; canDele
             )}
             <Tooltip label="Copy link">
                 <ActionIcon size="sm" variant="subtle" onClick={copyLink}>
-                    <IconCopy size={14} />
+                    <IconCopy />
                 </ActionIcon>
             </Tooltip>
             {canDelete && (
                 <Tooltip label="Revoke this link">
                     <ActionIcon size="sm" variant="subtle" color="red" onClick={onDelete}>
-                        <IconLinkOff size={14} />
+                        <IconLinkOff />
                     </ActionIcon>
                 </Tooltip>
             )}
@@ -96,12 +96,12 @@ function MemberRow({
                 <Group gap={4}>
                     <Tooltip label="Transfer ownership">
                         <ActionIcon size="sm" variant="subtle" color="orange" onClick={onTransfer}>
-                            <IconCrown size={14} />
+                            <IconCrown />
                         </ActionIcon>
                     </Tooltip>
                     <Tooltip label="Remove member">
                         <ActionIcon size="sm" variant="subtle" color="red" onClick={onRemove}>
-                            <IconUserMinus size={14} />
+                            <IconUserMinus />
                         </ActionIcon>
                     </Tooltip>
                 </Group>
@@ -109,7 +109,7 @@ function MemberRow({
             {!canManage && isCurrentUser && !isOwner && (
                 <Tooltip label="Leave map">
                     <ActionIcon size="sm" variant="subtle" color="red" onClick={onRemove}>
-                        <IconUserMinus size={14} />
+                        <IconUserMinus />
                     </ActionIcon>
                 </Tooltip>
             )}
