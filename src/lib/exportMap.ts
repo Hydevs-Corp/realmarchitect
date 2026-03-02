@@ -380,14 +380,23 @@ export function exportSVG(mapData: MapData, pois: POI[], zones: Zone[], notes: T
         const lineH = fs + 4;
         const padV = 8;
         const noteH = padV * 2 + allLines.length * lineH;
+        // Unique clip-path id per note so text can never bleed outside the rect
+        // (the wrapSVGText approximation can be slightly off for proportional fonts)
+        const clipId = `nc_${xmlEsc(n.id)}`;
 
+        out.push(`  <defs><clipPath id="${clipId}"><rect x="${n.x}" y="${n.y}" width="${w}" height="${noteH}"/></clipPath></defs>`);
         out.push(
-            `  <rect x="${n.x}" y="${n.y}" width="${w}" height="${noteH}" ` + `fill="${xmlEsc(noteBg)}" fill-opacity="${noteOpacity}" stroke="#bbb" stroke-width="1" rx="4"/>`
+            `  <rect x="${n.x}" y="${n.y}" width="${w}" height="${noteH}" ` +
+                `fill="${xmlEsc(noteBg)}" fill-opacity="${noteOpacity}" stroke="#bbb" stroke-width="1" rx="4"/>`
         );
-
+        out.push(`  <g clip-path="url(#${clipId})">`);
         allLines.forEach((ln, i) => {
-            out.push(`  <text x="${n.x + 8}" y="${n.y + padV + fs + i * lineH}" ` + `font-family="sans-serif" font-size="${fs}" fill="#333">${xmlEsc(ln)}</text>`);
+            out.push(
+                `    <text x="${n.x + 8}" y="${n.y + padV + fs + i * lineH}" ` +
+                    `font-family="sans-serif" font-size="${fs}" fill="#333">${xmlEsc(ln)}</text>`
+            );
         });
+        out.push(`  </g>`);
     }
 
     out.push('</svg>');
