@@ -9,7 +9,6 @@ import MapForm from './components/ui/MapForm';
 import { MapSettingsModal } from './components/ui/MapSettingsModal';
 import { useCreateMapModal } from './hooks/useCreateMapModal';
 import type { DncWorldmapMapRecord } from './types/database';
-import { mainColor } from './constants';
 
 export default function App() {
     const { records, loading, invalidate } = useCollection('dnc_worldmap_maps');

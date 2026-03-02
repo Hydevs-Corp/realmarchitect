@@ -1,0 +1,35 @@
+name: Build and Deploy
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**"
+      - "README.md"
+      - "TODO.md"
+      - "LICENSE"
+      - ".gitignore"
+
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to server with sftp
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT }}
+          protocol: "ftps"
+          local-dir: "dist/"
+          server-dir: "/"
