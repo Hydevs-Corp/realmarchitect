@@ -16,6 +16,7 @@ import { MapPage } from './pages/MapPage.tsx';
 import { LoginPage } from './pages/LoginPage.tsx';
 import { JoinPage } from './pages/JoinPage.tsx';
 import { AssetsPage } from './pages/AssetsPage.tsx';
+import { MapGeneratorPage } from './pages/MapGeneratorPage.tsx';
 import { mainColor } from './constants.ts';
 
 Hypb.initPB('https://pocketbase.louisrvl.fr', {
@@ -33,6 +34,7 @@ const router = createBrowserRouter([
             { path: 'login', element: <LoginPage /> },
             { path: 'join/:token', element: <JoinPage /> },
             { path: 'assets', element: <AssetsPage /> },
+            { path: 'generator', element: <MapGeneratorPage /> },
         ],
     },
 ]);

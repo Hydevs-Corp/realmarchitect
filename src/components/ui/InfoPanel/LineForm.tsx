@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Box, Button, ColorInput, Divider, Group, NumberInput, Select, Text } from '@mantine/core';
-import { IconCheck, IconTrash } from '@tabler/icons-react';
+import { IconTrash } from '@tabler/icons-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useMapStore } from '../../../store/useMapStore';
 import { updateLine as apiUpdateLine, deleteLine as apiDeleteLine } from '../../../lib/api';
@@ -39,7 +39,7 @@ export const LineForm: React.FC<LineFormProps> = ({ id, onDeleted }) => {
     const [formLineAAttach, setFormLineAAttach] = useState<string>(line?.aAttachedId && line?.aAttachedKind ? `${line.aAttachedKind}:${line.aAttachedId}` : '');
     const [formLineBAttach, setFormLineBAttach] = useState<string>(line?.bAttachedId && line?.bAttachedKind ? `${line.bAttachedKind}:${line.bAttachedId}` : '');
     const [formZIndex, setFormZIndex] = useState<number>(line?.zIndex ?? 0);
-    const [saving, setSaving] = useState(false);
+    const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(0);
     const [confirmDelete, setConfirmDelete] = useState(false);
 
     useEffect(() => {
@@ -83,37 +83,36 @@ export const LineForm: React.FC<LineFormProps> = ({ id, onDeleted }) => {
         setFormLineBAttach(_bId && _bKind ? `${_bKind}:${_bId}` : '');
     }, [_ax, _ay, _bx, _by, _cx, _cy, _aId, _aKind, _bId, _bKind]);
 
-    if (!line) return null;
-
-    const isDirty =
-        formLineName !== (line.name ?? '') ||
-        formLineColor !== line.color ||
-        formLineStrokeWidth !== (line.strokeWidth ?? 2) ||
-        formLineDash !== (line.dashPattern ?? 'solid') ||
-        formLineAx !== line.x ||
-        formLineAy !== line.y ||
-        formLineBx !== line.bx ||
-        formLineBy !== line.by ||
-        formLineCx !== (line.cx ?? '') ||
-        formLineCy !== (line.cy ?? '') ||
-        formLineAAttach !== (line.aAttachedId && line.aAttachedKind ? `${line.aAttachedKind}:${line.aAttachedId}` : '') ||
-        formLineBAttach !== (line.bAttachedId && line.bAttachedKind ? `${line.bAttachedKind}:${line.bAttachedId}` : '') ||
-        formZIndex !== line.zIndex;
-
-    const parseAttach = (val: string) => {
-        if (!val) return { id: undefined, kind: undefined };
-        const sep = val.indexOf(':');
-        return {
-            kind: val.slice(0, sep) as 'poi' | 'zone' | 'note' | 'background',
-            id: val.slice(sep + 1),
+    useEffect(() => {
+        if (!line) return;
+        const parseAttach = (val: string) => {
+            if (!val) return { id: undefined, kind: undefined };
+            const sep = val.indexOf(':');
+            return {
+                kind: val.slice(0, sep) as 'poi' | 'zone' | 'note' | 'background',
+                id: val.slice(sep + 1),
+            };
         };
-    };
-
-    const handleSave = async () => {
-        setSaving(true);
-        try {
-            const aAttach = parseAttach(formLineAAttach);
-            const bAttach = parseAttach(formLineBAttach);
+        const aAttach = parseAttach(formLineAAttach);
+        const bAttach = parseAttach(formLineBAttach);
+        if (
+            formLineName === (line.name ?? '') &&
+            formLineColor === line.color &&
+            formLineStrokeWidth === (line.strokeWidth ?? 2) &&
+            formLineDash === (line.dashPattern ?? 'solid') &&
+            formLineAx === line.x &&
+            formLineAy === line.y &&
+            formLineBx === line.bx &&
+            formLineBy === line.by &&
+            formLineCx === (line.cx ?? '') &&
+            formLineCy === (line.cy ?? '') &&
+            formLineAAttach === (line.aAttachedId && line.aAttachedKind ? `${line.aAttachedKind}:${line.aAttachedId}` : '') &&
+            formLineBAttach === (line.bAttachedId && line.bAttachedKind ? `${line.bAttachedKind}:${line.bAttachedId}` : '') &&
+            formZIndex === line.zIndex
+        )
+            return;
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(async () => {
             const updates = {
                 name: formLineName || undefined,
                 color: formLineColor,
@@ -133,10 +132,28 @@ export const LineForm: React.FC<LineFormProps> = ({ id, onDeleted }) => {
             };
             updateLine(id, updates);
             await apiUpdateLine(id, updates);
-        } finally {
-            setSaving(false);
-        }
-    };
+        }, 600);
+        return () => clearTimeout(saveTimerRef.current);
+    }, [
+        formLineName,
+        formLineColor,
+        formLineStrokeWidth,
+        formLineDash,
+        formLineAx,
+        formLineAy,
+        formLineBx,
+        formLineBy,
+        formLineCx,
+        formLineCy,
+        formLineAAttach,
+        formLineBAttach,
+        formZIndex,
+        line,
+        updateLine,
+        id,
+    ]);
+
+    if (!line) return null;
 
     const handleDelete = async () => {
         if (!confirmDelete) {
@@ -295,12 +312,6 @@ export const LineForm: React.FC<LineFormProps> = ({ id, onDeleted }) => {
             </Group>
 
             <NumberInput label="Order (z-index)" value={formZIndex} onChange={(v) => setFormZIndex(typeof v === 'number' ? v : 0)} min={0} step={1} size="sm" />
-
-            <Box>
-                <Button fullWidth size="sm" variant="filled" leftSection={<IconCheck />} loading={saving} disabled={!isDirty} onClick={handleSave}>
-                    Save
-                </Button>
-            </Box>
 
             <Divider />
 

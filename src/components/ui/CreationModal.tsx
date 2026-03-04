@@ -1,4 +1,21 @@
-import { Button, ColorInput, ColorSwatch, FileInput, Group, Modal, NumberInput, Select, Stack, Tabs, Text, Textarea, TextInput, Switch } from '@mantine/core';
+import {
+    Button,
+    ColorInput,
+    ColorSwatch,
+    FileInput,
+    Group,
+    Modal,
+    NumberInput,
+    Select,
+    Stack,
+    Tabs,
+    Text,
+    Textarea,
+    TextInput,
+    Switch,
+    Tooltip,
+    UnstyledButton,
+} from '@mantine/core';
 import { useForm } from '@mantine/form';
 import React, { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
@@ -10,6 +27,7 @@ import type { MapLine } from '../../types/map';
 import { useMapStore } from '../../store/useMapStore';
 import { ZONE_COLOR_SWATCHES, DEFAULT_ZONE_COLOR, ZONE_PATTERNS } from '../../lib/zoneColors';
 import type { RecordModel } from 'pocketbase';
+import { loadAssetHistory, pushAssetHistory, type StoredAsset } from '../../lib/assetHistory';
 
 export const CreationModal: React.FC = () => {
     const { creationMode, isCreationModalOpen, tempCreationData, currentMap, elementTypes, closeCreationModal, addPoi, addZone, addNote, addBackground, addLine } = useMapStore(
@@ -32,6 +50,7 @@ export const CreationModal: React.FC = () => {
     const [, setAssetOptions] = useState<{ value: string; label: string }[]>([]);
     const [showAssetPicker, setShowAssetPicker] = useState(false);
     const [selectedAsset, setSelectedAsset] = useState<(DncWorldmapAssetRecord & RecordModel) | null>(null);
+    const [assetHistory, setAssetHistory] = useState<StoredAsset[]>(() => loadAssetHistory());
 
     useEffect(() => {
         let mounted = true;
@@ -188,6 +207,15 @@ export const CreationModal: React.FC = () => {
         }
     };
 
+    const handleAssetSelect = (asset: DncWorldmapAssetRecord & RecordModel) => {
+        form.setFieldValue('assetId', asset.id);
+        if (asset.width) form.setFieldValue('width', asset.width);
+        if (asset.height) form.setFieldValue('height', asset.height);
+        setSelectedAsset(asset);
+        const updated = pushAssetHistory(asset);
+        setAssetHistory(updated);
+    };
+
     return (
         <Modal opened={isCreationModalOpen} onClose={closeCreationModal} title={title} style={{ pointerEvents: 'auto' }}>
             <form onSubmit={form.onSubmit(handleSubmit)}>
@@ -196,7 +224,7 @@ export const CreationModal: React.FC = () => {
                         <>
                             <Select
                                 label="Type"
-                                placeholder="Choisir un type..."
+                                placeholder="Select a type"
                                 data={typeSelectData}
                                 required
                                 leftSection={form.values.type ? <ColorSwatch color={elementTypes.find((t) => t.id === form.values.type)?.color ?? '#000'} size={12} /> : undefined}
@@ -255,10 +283,10 @@ export const CreationModal: React.FC = () => {
                     {creationMode === 'background' && (
                         <>
                             <TextInput label="Name" placeholder="Image name (optional)" {...form.getInputProps('bgName')} />
-                            <Tabs defaultValue="upload">
+                            <Tabs defaultValue="asset">
                                 <Tabs.List>
-                                    <Tabs.Tab value="upload">Upload</Tabs.Tab>
                                     <Tabs.Tab value="asset">Asset</Tabs.Tab>
+                                    <Tabs.Tab value="upload">Upload</Tabs.Tab>
                                 </Tabs.List>
 
                                 <Tabs.Panel value="upload" pt="sm">
@@ -266,50 +294,90 @@ export const CreationModal: React.FC = () => {
                                 </Tabs.Panel>
 
                                 <Tabs.Panel value="asset" pt="sm">
-                                    <Group>
-                                        <Button onClick={() => setShowAssetPicker(true)}>Open asset manager</Button>
-                                        {form.values.assetId && selectedAsset && (
-                                            <div
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: 8,
-                                                }}
-                                            >
-                                                <img
-                                                    src={getFileUrl(selectedAsset, selectedAsset.file)}
-                                                    alt="preview"
+                                    <Stack gap="xs">
+                                        <Group>
+                                            <Button onClick={() => setShowAssetPicker(true)}>Open asset manager</Button>
+
+                                            {form.values.assetId && selectedAsset && (
+                                                <div
                                                     style={{
-                                                        width: 64,
-                                                        height: 64,
-                                                        objectFit: 'cover',
-                                                        borderRadius: 4,
-                                                    }}
-                                                />
-                                                <div>
-                                                    <div style={{ fontWeight: 600 }}>{selectedAsset.name}</div>
-                                                    <div
-                                                        style={{
-                                                            fontSize: 12,
-                                                            color: 'var(--mantine-color-dimmed)',
-                                                        }}
-                                                    >
-                                                        {(selectedAsset.tags || []).join(', ')}
-                                                    </div>
-                                                </div>
-                                                <Button
-                                                    variant="subtle"
-                                                    size="xs"
-                                                    onClick={() => {
-                                                        form.setFieldValue('assetId', '');
-                                                        setSelectedAsset(null);
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: 8,
                                                     }}
                                                 >
-                                                    Remove
-                                                </Button>
+                                                    <img
+                                                        src={getFileUrl(selectedAsset, selectedAsset.file)}
+                                                        alt="preview"
+                                                        style={{
+                                                            width: 64,
+                                                            height: 64,
+                                                            objectFit: 'cover',
+                                                            borderRadius: 4,
+                                                        }}
+                                                    />
+                                                    <div>
+                                                        <div style={{ fontWeight: 600 }}>{selectedAsset.name}</div>
+                                                        <div
+                                                            style={{
+                                                                fontSize: 12,
+                                                                color: 'var(--mantine-color-dimmed)',
+                                                            }}
+                                                        >
+                                                            {(selectedAsset.tags || []).join(', ')}
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        variant="subtle"
+                                                        size="xs"
+                                                        onClick={() => {
+                                                            form.setFieldValue('assetId', '');
+                                                            setSelectedAsset(null);
+                                                        }}
+                                                    >
+                                                        Remove
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </Group>
+
+                                        {assetHistory.length > 0 && (
+                                            <div>
+                                                <Text size="xs" c="dimmed" mb={4}>
+                                                    Recent
+                                                </Text>
+                                                <Group gap={6}>
+                                                    {assetHistory.map((a) => (
+                                                        <Tooltip key={a.id} label={a.name} withArrow position="top">
+                                                            <UnstyledButton
+                                                                onClick={() => {
+                                                                    handleAssetSelect(a as DncWorldmapAssetRecord & RecordModel);
+                                                                }}
+                                                                style={{
+                                                                    border: form.values.assetId === a.id ? '2px solid var(--mantine-color-blue-5)' : '2px solid transparent',
+                                                                    borderRadius: 6,
+                                                                    overflow: 'hidden',
+                                                                    lineHeight: 0,
+                                                                    background: 'white',
+                                                                }}
+                                                            >
+                                                                <img
+                                                                    src={getFileUrl(a as RecordModel, a.file)}
+                                                                    alt={a.name}
+                                                                    style={{
+                                                                        width: 48,
+                                                                        height: 48,
+                                                                        objectFit: 'cover',
+                                                                        display: 'block',
+                                                                    }}
+                                                                />
+                                                            </UnstyledButton>
+                                                        </Tooltip>
+                                                    ))}
+                                                </Group>
                                             </div>
                                         )}
-                                    </Group>
+                                    </Stack>
                                 </Tabs.Panel>
                             </Tabs>
 
@@ -346,8 +414,7 @@ export const CreationModal: React.FC = () => {
                 opened={showAssetPicker}
                 onClose={() => setShowAssetPicker(false)}
                 onSelect={(asset) => {
-                    form.setFieldValue('assetId', asset.id);
-                    setSelectedAsset(asset as DncWorldmapAssetRecord & RecordModel);
+                    handleAssetSelect(asset as DncWorldmapAssetRecord & RecordModel);
                 }}
             />
         </Modal>

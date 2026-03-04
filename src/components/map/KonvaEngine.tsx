@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { Stage, Layer, Image as KonvaImage, Line, Circle, Rect, Group, Label, Tag, Text, Transformer } from 'react-konva';
-import useImage from 'use-image';
-import type { KonvaEventObject } from 'konva/lib/Node';
 import Konva from 'konva';
+import type { KonvaEventObject } from 'konva/lib/Node';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Circle, Group, Image as KonvaImage, Label, Layer, Line, Rect, Stage, Tag, Text, Transformer } from 'react-konva';
+import useImage from 'use-image';
 
 const SNAP_SCREEN_RADIUS = 25;
 
@@ -25,16 +25,16 @@ function closestPointOnSegment(p: { x: number; y: number }, a: { x: number; y: n
 }
 
 import { useShallow } from 'zustand/react/shallow';
-import { useMapStore } from '../../store/useMapStore';
-import type { Background, POI, Zone, TextNote, MapLine, LineAttachKind, DrawStroke } from '../../types/map';
 import {
-    updatePOI as apiUpdatePOI,
-    updateZone as apiUpdateZone,
-    updateNote as apiUpdateNote,
     updateBackground as apiUpdateBackground,
     updateLine as apiUpdateLine,
+    updateNote as apiUpdateNote,
+    updatePOI as apiUpdatePOI,
+    updateZone as apiUpdateZone,
 } from '../../lib/api';
 import { setStageRef } from '../../lib/stageRef';
+import { useMapStore } from '../../store/useMapStore';
+import type { Background, DrawStroke, LineAttachKind, MapLine, POI, TextNote, Zone } from '../../types/map';
 
 const MIDDLE_BUTTON = 1;
 const RIGHT_BUTTON = 2;
@@ -137,11 +137,11 @@ const BackgroundItem: React.FC<{
     onDragMove?: (totalDx: number, totalDy: number) => void;
     onDragEnd: (pos: { x: number; y: number }) => void;
     onResize: (updates: { x: number; y: number; width: number; height: number; rotation?: number }) => void;
-}> = ({ background, editMode, selected, isMultiSelected, onSelect, onDragStart, onDragMove, onDragEnd, onResize }) => {
+    onNodeRef?: (bgId: string, node: Konva.Image | null) => void;
+}> = ({ background, editMode, selected, isMultiSelected, onSelect, onDragStart, onDragMove, onDragEnd, onResize, onNodeRef }) => {
     const dragStartRef = useRef<{ x: number; y: number } | null>(null);
     const [image] = useImage(background.imageUrl);
     const imageRef = useRef<Konva.Image>(null);
-    const trRef = useRef<Konva.Transformer>(null);
 
     const rasterized = useMemo<HTMLCanvasElement | null>(() => {
         if (!image) return null;
@@ -155,11 +155,12 @@ const BackgroundItem: React.FC<{
     }, [image, background.width, background.height]);
 
     useEffect(() => {
-        if (selected && editMode && trRef.current && imageRef.current) {
-            trRef.current.nodes([imageRef.current]);
-            trRef.current.getLayer()?.batchDraw();
-        }
-    }, [selected, editMode]);
+        onNodeRef?.(background.id, imageRef.current);
+        return () => {
+            onNodeRef?.(background.id, null);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <>
@@ -168,6 +169,8 @@ const BackgroundItem: React.FC<{
                 image={rasterized ?? image}
                 x={background.x}
                 y={background.y}
+                offsetX={background.width / 2}
+                offsetY={background.height / 2}
                 rotation={background.rotation ?? 0}
                 width={background.width}
                 height={background.height}
@@ -195,8 +198,10 @@ const BackgroundItem: React.FC<{
                 }}
                 onTransformEnd={(e) => {
                     const node = e.target;
-                    const newWidth = r2(node.width() * node.scaleX());
-                    const newHeight = r2(node.height() * node.scaleY());
+                    const sx = node.scaleX();
+                    const sy = node.scaleY();
+                    const newWidth = r2(node.width() * sx);
+                    const newHeight = r2(node.height() * sy);
                     const newRotation = r2(node.rotation() || 0);
                     node.scaleX(1);
                     node.scaleY(1);
@@ -209,21 +214,10 @@ const BackgroundItem: React.FC<{
                     });
                 }}
             />
-            {selected && editMode && (
-                <Transformer
-                    ref={trRef}
-                    rotateEnabled={true}
-                    keepRatio={background.lockAspectRatio ?? false}
-                    boundBoxFunc={(oldBox, newBox) => {
-                        if (newBox.width < 10 || newBox.height < 10) return oldBox;
-                        return newBox;
-                    }}
-                />
-            )}
             {selected && !editMode && (
                 <Rect
-                    x={background.x}
-                    y={background.y}
+                    x={background.x - background.width / 2}
+                    y={background.y - background.height / 2}
                     width={background.width}
                     height={background.height}
                     rotation={background.rotation ?? 0}
@@ -236,8 +230,8 @@ const BackgroundItem: React.FC<{
             )}
             {isMultiSelected && !selected && (
                 <Rect
-                    x={background.x}
-                    y={background.y}
+                    x={background.x - background.width / 2}
+                    y={background.y - background.height / 2}
                     width={background.width}
                     height={background.height}
                     rotation={background.rotation ?? 0}
@@ -716,6 +710,13 @@ export const KonvaEngine: React.FC = () => {
         addGroup,
         activeZoneFilterId,
         getElementsInZone,
+        imageBrushAssetId,
+        imageBrushUrl,
+        imageBrushWidth,
+        imageBrushHeight,
+        imageBrushRotation,
+        setImageBrushRotation,
+        placeImageBrush,
     } = useMapStore(
         useShallow((state) => ({
             backgrounds: state.backgrounds,
@@ -750,8 +751,42 @@ export const KonvaEngine: React.FC = () => {
             addGroup: state.addGroup,
             activeZoneFilterId: state.activeZoneFilterId,
             getElementsInZone: state.getElementsInZone,
+            imageBrushAssetId: state.imageBrushAssetId,
+            imageBrushUrl: state.imageBrushUrl,
+            imageBrushWidth: state.imageBrushWidth,
+            imageBrushHeight: state.imageBrushHeight,
+            imageBrushRotation: state.imageBrushRotation,
+            setImageBrushRotation: state.setImageBrushRotation,
+            placeImageBrush: state.placeImageBrush,
         }))
     );
+
+    const [brushPreviewImage] = useImage(imageBrushUrl);
+
+    const bgNodeMap = useRef<Map<string, Konva.Image>>(new Map());
+    const topBgTrRef = useRef<Konva.Transformer>(null);
+    const handleBgNodeRef = useCallback((bgId: string, node: Konva.Image | null) => {
+        if (node) {
+            bgNodeMap.current.set(bgId, node);
+        } else {
+            bgNodeMap.current.delete(bgId);
+        }
+    }, []);
+
+    useEffect(() => {
+        const tr = topBgTrRef.current;
+        if (!tr) return;
+        if (selectedElement?.kind === 'background' && editMode) {
+            const node = bgNodeMap.current.get(selectedElement.id);
+            if (node) {
+                tr.nodes([node]);
+                tr.getLayer()?.batchDraw();
+                return;
+            }
+        }
+        tr.nodes([]);
+        tr.getLayer()?.batchDraw();
+    }, [selectedElement, editMode]);
 
     const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
     const [stageScale, setStageScale] = useState(1);
@@ -1259,12 +1294,12 @@ export const KonvaEngine: React.FC = () => {
 
     useEffect(() => {
         if (!pendingCenter) return;
-        const scale = stageScale;
         setStagePos({
-            x: window.innerWidth / 2 - pendingCenter.x * scale,
-            y: window.innerHeight / 2 - pendingCenter.y * scale,
+            x: window.innerWidth / 2 - pendingCenter.x * stageScale,
+            y: window.innerHeight / 2 - pendingCenter.y * stageScale,
         });
         clearCenterTarget();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pendingCenter]);
 
     useEffect(() => {
@@ -1317,7 +1352,6 @@ export const KonvaEngine: React.FC = () => {
         let lastTouchDist = 0;
         let lastTouchMidX = 0;
         let lastTouchMidY = 0;
-        // Track finger-down position to detect tap vs. pan (threshold = 10px)
         let touchOriginX = 0;
         let touchOriginY = 0;
         const PAN_THRESHOLD = 10;
@@ -1326,7 +1360,6 @@ export const KonvaEngine: React.FC = () => {
 
         const onTouchStart = (e: TouchEvent) => {
             if (e.touches.length === 1) {
-                // Do NOT call preventDefault here — let Konva receive the tap
                 panning = false;
                 touchOriginX = e.touches[0].clientX;
                 touchOriginY = e.touches[0].clientY;
@@ -1347,7 +1380,6 @@ export const KonvaEngine: React.FC = () => {
             if (e.touches.length === 1) {
                 const movedX = e.touches[0].clientX - touchOriginX;
                 const movedY = e.touches[0].clientY - touchOriginY;
-                // Only activate panning once the finger has moved beyond the threshold
                 if (!panning && Math.hypot(movedX, movedY) < PAN_THRESHOLD) return;
                 panning = true;
                 e.preventDefault();
@@ -1374,7 +1406,6 @@ export const KonvaEngine: React.FC = () => {
                 const scaleRatio = newDist / lastTouchDist;
                 const newScale = Math.max(0.05, Math.min(20, oldScale * scaleRatio));
 
-                // Zoom towards the midpoint between the two fingers
                 const stageBox = stage.container().getBoundingClientRect();
                 const pointerX = midX - stageBox.left;
                 const pointerY = midY - stageBox.top;
@@ -1383,7 +1414,6 @@ export const KonvaEngine: React.FC = () => {
                     y: (pointerY - stage.y()) / oldScale,
                 };
 
-                // Also pan by mid-point delta
                 const panDx = midX - lastTouchMidX;
                 const panDy = midY - lastTouchMidY;
 
@@ -1406,7 +1436,6 @@ export const KonvaEngine: React.FC = () => {
                 touchOriginX = 0;
                 touchOriginY = 0;
             } else if (e.touches.length === 1) {
-                // One finger lifted from a two-finger gesture — reset for possible pan
                 lastTouchDist = 0;
                 panning = false;
                 touchOriginX = e.touches[0].clientX;
@@ -1439,6 +1468,13 @@ export const KonvaEngine: React.FC = () => {
 
     const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
         e.evt.preventDefault();
+
+        if (e.evt.shiftKey && creationMode === 'background') {
+            const step = 5;
+            const delta = e.evt.deltaY < 0 ? -step : step;
+            setImageBrushRotation(imageBrushRotation + delta);
+            return;
+        }
 
         const scaleBy = 1.1;
         const stage = e.target.getStage();
@@ -1487,9 +1523,13 @@ export const KonvaEngine: React.FC = () => {
 
         const relativePos = transform.point(pos);
 
-        if (creationMode === 'poi' || creationMode === 'note' || creationMode === 'background') {
+        if (creationMode === 'poi' || creationMode === 'note') {
             setTempCreationData({ x: relativePos.x, y: relativePos.y });
             openCreationModal();
+        } else if (creationMode === 'background') {
+            if (imageBrushAssetId) {
+                void placeImageBrush(relativePos.x, relativePos.y);
+            }
         } else if (creationMode === 'zone') {
             const newPoints = [...draftZonePoints, relativePos.x, relativePos.y];
             setDraftZonePoints(newPoints);
@@ -1548,6 +1588,7 @@ export const KonvaEngine: React.FC = () => {
                             editMode={editMode && !bg.locked && !lockedGroupElIds.has(bg.id)}
                             selected={selectedElement?.id === bg.id}
                             isMultiSelected={multiSelectedIds.includes(bg.id)}
+                            onNodeRef={handleBgNodeRef}
                             onSelect={(shiftKey) => {
                                 if (shiftKey) {
                                     toggleMultiSelect(bg.id);
@@ -1930,8 +1971,25 @@ export const KonvaEngine: React.FC = () => {
                 )}
                 {mouseMapPos && creationMode === 'background' && (
                     <>
-                        <Line points={[mouseMapPos.x - 12, mouseMapPos.y, mouseMapPos.x + 12, mouseMapPos.y]} stroke="white" strokeWidth={1} listening={false} />
-                        <Line points={[mouseMapPos.x, mouseMapPos.y - 12, mouseMapPos.x, mouseMapPos.y + 12]} stroke="white" strokeWidth={1} listening={false} />
+                        {brushPreviewImage ? (
+                            <KonvaImage
+                                image={brushPreviewImage}
+                                x={mouseMapPos.x}
+                                y={mouseMapPos.y}
+                                offsetX={imageBrushWidth / 2}
+                                offsetY={imageBrushHeight / 2}
+                                width={imageBrushWidth}
+                                height={imageBrushHeight}
+                                rotation={imageBrushRotation}
+                                opacity={0.45}
+                                listening={false}
+                            />
+                        ) : (
+                            <>
+                                <Line points={[mouseMapPos.x - 12, mouseMapPos.y, mouseMapPos.x + 12, mouseMapPos.y]} stroke="white" strokeWidth={1} listening={false} />
+                                <Line points={[mouseMapPos.x, mouseMapPos.y - 12, mouseMapPos.x, mouseMapPos.y + 12]} stroke="white" strokeWidth={1} listening={false} />
+                            </>
+                        )}
                     </>
                 )}
                 {mouseMapPos && creationMode === 'draw' && !drawingLayer.hidden && !drawingLayer.locked && (
@@ -2000,7 +2058,6 @@ export const KonvaEngine: React.FC = () => {
                                 apiUpdateLine(line.id, updates);
                             };
                             const handleDragMoveFactory = (_endpoint: 'a' | 'b') => (e: KonvaEventObject<DragEvent>) => {
-                                _endpoint;
                                 const gripOffX = _endpoint === 'a' ? aGripX - a.x : bGripX - b.x;
                                 const gripOffY = _endpoint === 'a' ? aGripY - a.y : bGripY - b.y;
                                 const snap = findSnapTarget(e.target.x() - gripOffX, e.target.y() - gripOffY);
@@ -2063,6 +2120,30 @@ export const KonvaEngine: React.FC = () => {
                         listening={false}
                     />
                 )}
+            </Layer>
+
+            {/* Top-most layer: background transformer – always above every other element */}
+            <Layer>
+                {(() => {
+                    const selBg = selectedElement?.kind === 'background' ? backgrounds.find((b) => b.id === selectedElement.id) : undefined;
+                    const lockRatio = selBg?.lockAspectRatio ?? false;
+                    return (
+                        <Transformer
+                            ref={topBgTrRef}
+                            rotateEnabled={true}
+                            keepRatio={lockRatio}
+                            enabledAnchors={
+                                lockRatio
+                                    ? ['top-left', 'top-right', 'bottom-left', 'bottom-right']
+                                    : ['top-left', 'top-center', 'top-right', 'middle-right', 'middle-left', 'bottom-left', 'bottom-center', 'bottom-right']
+                            }
+                            boundBoxFunc={(oldBox, newBox) => {
+                                if (newBox.width < 10 || newBox.height < 10) return oldBox;
+                                return newBox;
+                            }}
+                        />
+                    );
+                })()}
             </Layer>
         </Stage>
     );

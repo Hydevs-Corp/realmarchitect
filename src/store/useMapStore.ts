@@ -19,6 +19,7 @@ import {
     createPOI as apiCreatePOI,
     createZone as apiCreateZone,
     createNote as apiCreateNote,
+    createBackground as apiCreateBackground,
     createLine as apiCreateLine,
     updatePOI as apiUpdatePOI,
     updateZone as apiUpdateZone,
@@ -103,7 +104,7 @@ type CreationMode = 'none' | 'poi' | 'zone' | 'note' | 'background' | 'line' | '
 
 export type SelectedElement = {
     id: string;
-    kind: 'poi' | 'zone' | 'note' | 'background' | 'line' | 'drawing';
+    kind: 'poi' | 'zone' | 'note' | 'background' | 'line' | 'drawing' | 'image-brush';
 } | null;
 
 interface MapState {
@@ -118,6 +119,12 @@ interface MapState {
     selectedElement: SelectedElement;
     editMode: boolean;
     creationMode: CreationMode;
+
+    imageBrushAssetId: string;
+    imageBrushUrl: string;
+    imageBrushWidth: number;
+    imageBrushHeight: number;
+    imageBrushRotation: number;
 
     tempCreationData: {
         x?: number;
@@ -154,6 +161,9 @@ interface MapState {
     setCreationMode: (mode: CreationMode) => void;
     setDraftZonePoints: (points: number[]) => void;
     setDraftLinePointA: (pt: { x: number; y: number } | null) => void;
+    setImageBrush: (assetId: string, width: number, height: number, url?: string) => void;
+    setImageBrushRotation: (deg: number) => void;
+    placeImageBrush: (x: number, y: number) => Promise<void>;
 
     setTempCreationData: (
         data: {
@@ -218,6 +228,8 @@ interface MapState {
     updateLine: (id: string, updates: Partial<MapLine>) => void;
     deleteLine: (id: string) => void;
 
+    deleteMultiple: (ids: string[]) => void;
+
     addGroup: (name: string, color: string, initialMemberIds?: string[]) => void;
     updateGroup: (id: string, updates: Partial<MapGroup>) => void;
     deleteGroup: (id: string) => void;
@@ -268,6 +280,12 @@ export const useMapStore = create<MapState>((set, get) => ({
     selectedElement: null,
     editMode: false,
     creationMode: 'none',
+
+    imageBrushAssetId: '',
+    imageBrushUrl: '',
+    imageBrushWidth: 200,
+    imageBrushHeight: 200,
+    imageBrushRotation: 0,
 
     tempCreationData: null,
     isCreationModalOpen: false,
@@ -336,6 +354,28 @@ export const useMapStore = create<MapState>((set, get) => ({
     setCreationMode: (mode) => set({ creationMode: mode, draftZonePoints: [], draftLinePointA: null }),
     setDraftZonePoints: (points) => set({ draftZonePoints: points }),
     setDraftLinePointA: (pt) => set({ draftLinePointA: pt }),
+    setImageBrush: (assetId, width, height, url) =>
+        set((state) => ({ imageBrushAssetId: assetId, imageBrushUrl: url !== undefined ? url : state.imageBrushUrl, imageBrushWidth: width, imageBrushHeight: height })),
+    setImageBrushRotation: (deg) => set({ imageBrushRotation: ((deg % 360) + 360) % 360 }),
+    placeImageBrush: async (x, y) => {
+        const { currentMap, imageBrushAssetId, imageBrushWidth, imageBrushHeight, imageBrushRotation } = get();
+        if (!currentMap || !imageBrushAssetId) return;
+        const newBg = await apiCreateBackground(
+            {
+                mapId: currentMap.id,
+                x,
+                y,
+                zIndex: -1,
+                name: undefined,
+                width: imageBrushWidth,
+                height: imageBrushHeight,
+                rotation: imageBrushRotation,
+            },
+            undefined,
+            imageBrushAssetId
+        );
+        get().addBackground(newBg);
+    },
 
     setTempCreationData: (data) => set({ tempCreationData: data }),
     openCreationModal: () => set({ isCreationModalOpen: true }),
@@ -700,6 +740,30 @@ export const useMapStore = create<MapState>((set, get) => ({
             return {
                 lines: newLines,
                 selectedElement: state.selectedElement?.id === id ? null : state.selectedElement,
+                undoStack: pushHistory(state.undoStack, entry),
+                redoStack: [],
+            };
+        }),
+    deleteMultiple: (ids) =>
+        set((state) => {
+            const idSet = new Set(ids);
+            const newPois = state.pois.filter((p) => !idSet.has(p.id));
+            const newZones = state.zones.filter((z) => !idSet.has(z.id));
+            const newNotes = state.notes.filter((n) => !idSet.has(n.id));
+            const newBgs = state.backgrounds.filter((b) => !idSet.has(b.id));
+            const newLines = state.lines.filter((l) => !idSet.has(l.id));
+            const entry: HistoryEntry = {
+                before: { pois: state.pois, zones: state.zones, notes: state.notes, backgrounds: state.backgrounds, lines: state.lines },
+                after: { pois: newPois, zones: newZones, notes: newNotes, backgrounds: newBgs, lines: newLines },
+            };
+            return {
+                pois: newPois,
+                zones: newZones,
+                notes: newNotes,
+                backgrounds: newBgs,
+                lines: newLines,
+                selectedElement: state.selectedElement && idSet.has(state.selectedElement.id) ? null : state.selectedElement,
+                multiSelectedIds: [],
                 undoStack: pushHistory(state.undoStack, entry),
                 redoStack: [],
             };

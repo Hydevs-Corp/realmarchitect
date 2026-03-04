@@ -1,25 +1,25 @@
-import { ActionIcon, Button, Center, Group, Image, Loader, Table, Tabs, Text } from '@mantine/core';
+import { ActionIcon, Button, Center, Group, Loader, Table, Tabs, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react';
-import type { RecordModel } from 'pocketbase';
 import { useEffect, useState } from 'react';
-import { createAsset, createAssetCategory, deleteAsset, deleteAssetCategory, fetchAssets, getFileUrl, updateAsset, updateAssetCategory } from '../../lib/api';
+import { createAsset, createAssetCategory, deleteAsset, deleteAssetCategory, fetchAssetCategories, updateAsset, updateAssetCategory } from '../../lib/api';
 import type { DncWorldmapAssetCategoryRecord, DncWorldmapAssetRecord } from '../../types/database';
 import AssetForm from './AssetForm';
+import AssetGrid from './AssetGrid';
 import CategoryForm from './CategoryForm';
 
 export function AssetManagerContent() {
     const [loading, setLoading] = useState(true);
-    const [assets, setAssets] = useState<DncWorldmapAssetRecord[]>([]);
     const [categories, setCategories] = useState<DncWorldmapAssetCategoryRecord[]>([]);
     const [activeTab, setActiveTab] = useState<string>('assets');
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    const refresh = () => setRefreshKey((k) => k + 1);
 
     const load = async () => {
         setLoading(true);
         try {
-            const res = await fetchAssets();
-            setAssets(res.assets);
-            setCategories(res.categories);
+            setCategories(await fetchAssetCategories());
         } finally {
             setLoading(false);
         }
@@ -84,18 +84,20 @@ export function AssetManagerContent() {
             children: (
                 <AssetForm
                     categories={categories}
-                    onSubmit={async (data) => {
-                        if (!data.name || !data.file) return;
-                        await createAsset({
-                            name: data.name,
-                            file: data.file,
-                            category: data.category,
-                            tags: data.tags,
-                            width: data.width,
-                            height: data.height,
-                        });
+                    onSubmit={async (items) => {
+                        for (const item of items) {
+                            if (!item.name || !item.file) continue;
+                            await createAsset({
+                                name: item.name,
+                                file: item.file,
+                                category: item.category,
+                                tags: item.tags,
+                                width: item.width,
+                                height: item.height,
+                            });
+                        }
                         modals.closeAll();
-                        await load();
+                        refresh();
                     }}
                 />
             ),
@@ -110,10 +112,12 @@ export function AssetManagerContent() {
                 <AssetForm
                     categories={categories}
                     initial={asset}
-                    onSubmit={async (data) => {
+                    onSubmit={async (items) => {
+                        const data = items[0];
+                        if (!data) return;
                         await updateAsset(asset.id, data);
                         modals.closeAll();
-                        await load();
+                        refresh();
                     }}
                 />
             ),
@@ -132,7 +136,7 @@ export function AssetManagerContent() {
             confirmProps: { color: 'red' },
             onConfirm: async () => {
                 await deleteAsset(asset.id);
-                await load();
+                refresh();
             },
         });
     };
@@ -156,39 +160,20 @@ export function AssetManagerContent() {
                                 Ajouter
                             </Button>
                         </Group>
-                        <Table highlightOnHover verticalSpacing="sm">
-                            <thead>
-                                <tr>
-                                    <th>Preview</th>
-                                    <th>Name</th>
-                                    <th>Category</th>
-                                    <th>Tags</th>
-                                    <th />
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {assets.map((a) => (
-                                    <tr key={a.id}>
-                                        <td>
-                                            <Image src={getFileUrl(a as unknown as RecordModel, a.file)} width={50} height={50} />
-                                        </td>
-                                        <td>{a.name}</td>
-                                        <td>{categories.find((c) => c.id === a.category)?.name || ''}</td>
-                                        <td>{(a.tags || []).join(', ')}</td>
-                                        <td>
-                                            <Group gap="xs" align="right">
-                                                <ActionIcon onClick={() => handleEditAsset(a)}>
-                                                    <IconEdit />
-                                                </ActionIcon>
-                                                <ActionIcon color="red" onClick={() => handleDeleteAsset(a)}>
-                                                    <IconTrash />
-                                                </ActionIcon>
-                                            </Group>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </Table>
+                        <AssetGrid
+                            categories={categories}
+                            refreshKey={refreshKey}
+                            renderActions={(a) => (
+                                <Group gap="xs" justify="flex-end">
+                                    <ActionIcon size="sm" onClick={() => handleEditAsset(a)}>
+                                        <IconEdit size={14} />
+                                    </ActionIcon>
+                                    <ActionIcon size="sm" color="red" onClick={() => handleDeleteAsset(a)}>
+                                        <IconTrash size={14} />
+                                    </ActionIcon>
+                                </Group>
+                            )}
+                        />
                     </Tabs.Panel>
 
                     <Tabs.Panel value="categories" pt="md">

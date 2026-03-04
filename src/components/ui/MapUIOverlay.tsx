@@ -1,4 +1,5 @@
 import { ActionIcon, Affix, Group, Kbd, Paper, Text, Tooltip } from '@mantine/core';
+import { modals } from '@mantine/modals';
 import { spotlight } from '@mantine/spotlight';
 import { IconEdit, IconLayoutList, IconLine, IconMapPin, IconNote, IconPencil, IconPhoto, IconPolygon, IconSearch, IconX } from '@tabler/icons-react';
 import React, { useEffect } from 'react';
@@ -64,6 +65,13 @@ export const MapUIOverlay: React.FC = () => {
         copySelected,
         paste,
         duplicateSelected,
+        deletePoi,
+        deleteZone,
+        deleteNote,
+        deleteBackground,
+        deleteLine,
+        deleteMultiple,
+        multiSelectedIds,
     } = useMapStore(
         useShallow((state) => ({
             editMode: state.editMode,
@@ -79,6 +87,13 @@ export const MapUIOverlay: React.FC = () => {
             copySelected: state.copySelected,
             paste: state.paste,
             duplicateSelected: state.duplicateSelected,
+            deletePoi: state.deletePoi,
+            deleteZone: state.deleteZone,
+            deleteNote: state.deleteNote,
+            deleteBackground: state.deleteBackground,
+            deleteLine: state.deleteLine,
+            deleteMultiple: state.deleteMultiple,
+            multiSelectedIds: state.multiSelectedIds,
         }))
     );
 
@@ -87,6 +102,16 @@ export const MapUIOverlay: React.FC = () => {
         setCreationMode(next);
         if (next === 'draw') {
             setSelectedElement({ id: 'drawing-layer', kind: 'drawing' });
+        } else {
+            setSelectedElement(null);
+        }
+    };
+
+    const handleSetBackground = () => {
+        const next = creationMode === 'background' ? 'none' : 'background';
+        setCreationMode(next);
+        if (next === 'background') {
+            setSelectedElement({ id: 'image-brush', kind: 'image-brush' });
         } else {
             setSelectedElement(null);
         }
@@ -128,9 +153,65 @@ export const MapUIOverlay: React.FC = () => {
             }
 
             switch (e.key.toLowerCase()) {
+                case 'delete':
+                case 'backspace': {
+                    if (!editMode) break;
+                    e.preventDefault();
+                    if (multiSelectedIds.length > 1) {
+                        const ids = [...multiSelectedIds];
+                        modals.openConfirmModal({
+                            title: `Delete ${ids.length} elements`,
+                            centered: true,
+                            children: (
+                                <Text size="sm">
+                                    Are you sure you want to delete <strong>{ids.length} elements</strong>? This action can be undone with Ctrl+Z.
+                                </Text>
+                            ),
+                            labels: { confirm: 'Delete all', cancel: 'Cancel' },
+                            confirmProps: { color: 'red' },
+                            onConfirm: () => deleteMultiple(ids),
+                        });
+                        break;
+                    }
+                    if (!selectedElement) break;
+                    if (selectedElement.kind === 'drawing' || selectedElement.kind === 'image-brush') break;
+                    const kindLabels: Record<string, string> = {
+                        poi: 'POI',
+                        zone: 'Zone',
+                        note: 'Note',
+                        background: 'Image',
+                        line: 'Line',
+                    };
+                    const label = kindLabels[selectedElement.kind] ?? 'element';
+                    const id = selectedElement.id;
+                    const kind = selectedElement.kind;
+                    modals.openConfirmModal({
+                        title: `Delete ${label}`,
+                        centered: true,
+                        children: (
+                            <Text size="sm">
+                                Are you sure you want to delete this <strong>{label}</strong>? This action can be undone with Ctrl+Z.
+                            </Text>
+                        ),
+                        labels: { confirm: 'Delete', cancel: 'Cancel' },
+                        confirmProps: { color: 'red' },
+                        onConfirm: () => {
+                            if (kind === 'poi') deletePoi(id);
+                            else if (kind === 'zone') deleteZone(id);
+                            else if (kind === 'note') deleteNote(id);
+                            else if (kind === 'background') deleteBackground(id);
+                            else if (kind === 'line') deleteLine(id);
+                        },
+                    });
+                    break;
+                }
                 case 'escape':
-                    if (creationMode !== 'none') setCreationMode('none');
-                    else if (selectedElement) setSelectedElement(null);
+                    if (creationMode !== 'none') {
+                        setCreationMode('none');
+                        if (creationMode === 'draw' || creationMode === 'background') setSelectedElement(null);
+                    } else if (selectedElement) {
+                        setSelectedElement(null);
+                    }
                     break;
                 case 'e':
                     toggleEditMode();
@@ -149,7 +230,15 @@ export const MapUIOverlay: React.FC = () => {
                     break;
                 case 'b':
                 case '4':
-                    if (editMode) setCreationMode(creationMode === 'background' ? 'none' : 'background');
+                    if (editMode) {
+                        const next = creationMode === 'background' ? 'none' : 'background';
+                        setCreationMode(next);
+                        if (next === 'background') {
+                            setSelectedElement({ id: 'image-brush', kind: 'image-brush' });
+                        } else {
+                            setSelectedElement(null);
+                        }
+                    }
                     break;
                 case 't':
                 case '5':
@@ -188,6 +277,13 @@ export const MapUIOverlay: React.FC = () => {
         copySelected,
         paste,
         duplicateSelected,
+        deletePoi,
+        deleteZone,
+        deleteNote,
+        deleteBackground,
+        deleteLine,
+        multiSelectedIds,
+        deleteMultiple,
     ]);
 
     return (
@@ -283,7 +379,13 @@ export const MapUIOverlay: React.FC = () => {
                                             size="lg"
                                             variant={creationMode === mode ? 'filled' : 'default'}
                                             color={creationMode === mode ? mainColor : 'gray'}
-                                            onClick={() => (mode === 'draw' ? handleSetDraw() : setCreationMode(creationMode === mode ? 'none' : mode))}
+                                            onClick={() =>
+                                                mode === 'draw'
+                                                    ? handleSetDraw()
+                                                    : mode === 'background'
+                                                      ? handleSetBackground()
+                                                      : setCreationMode(creationMode === mode ? 'none' : mode)
+                                            }
                                         >
                                             {icon}
                                         </ActionIcon>
@@ -315,7 +417,9 @@ export const MapUIOverlay: React.FC = () => {
                                       ? 'Click to place point A · then click to place point B'
                                       : creationMode === 'draw'
                                         ? 'Draw freehand · Adjust options in the details panel'
-                                        : 'Click on the map to place'}
+                                        : creationMode === 'background'
+                                          ? 'Select an image in the panel · then click to place'
+                                          : 'Click on the map to place'}
                                 {' · '}
                                 <Kbd>Escape</Kbd> to cancel
                             </Text>

@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
 import { Box, Button, Divider, NumberInput, Switch, TextInput } from '@mantine/core';
-import { IconCheck, IconTrash } from '@tabler/icons-react';
+import { IconTrash } from '@tabler/icons-react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import { deleteBackground as apiDeleteBackground, updateBackground as apiUpdateBackground } from '../../../lib/api';
 import { useMapStore } from '../../../store/useMapStore';
-import { updateBackground as apiUpdateBackground, deleteBackground as apiDeleteBackground } from '../../../lib/api';
 import { DeleteConfirm } from './DeleteConfirm';
 
 interface BackgroundFormProps {
@@ -30,8 +30,9 @@ export const BackgroundForm: React.FC<BackgroundFormProps> = ({ id, onDeleted })
     const [formBgRotation, setFormBgRotation] = useState<number>(bg?.rotation ?? 0);
     const [formBgLockAspect, setFormBgLockAspect] = useState<boolean>(!!bg?.lockAspectRatio);
     const [formZIndex, setFormZIndex] = useState<number>(bg?.zIndex ?? 0);
-    const [saving, setSaving] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
+
+    const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         if (!bg) return;
@@ -63,21 +64,23 @@ export const BackgroundForm: React.FC<BackgroundFormProps> = ({ id, onDeleted })
         setFormBgLockAspect(!!_lock);
     }, [_x, _y, _w, _h, _rot, _lock]);
 
-    if (!bg) return null;
+    useEffect(() => {
+        if (!bg) return;
+        if (
+            formBgName === (bg.name ?? '') &&
+            formBgX === bg.x &&
+            formBgY === bg.y &&
+            formBgWidth === bg.width &&
+            formBgHeight === bg.height &&
+            formBgRotation === (bg.rotation ?? 0) &&
+            formBgLockAspect === !!bg.lockAspectRatio &&
+            formZIndex === bg.zIndex
+        ) {
+            return;
+        }
 
-    const isDirty =
-        formBgName !== (bg.name ?? '') ||
-        formBgX !== bg.x ||
-        formBgY !== bg.y ||
-        formBgWidth !== bg.width ||
-        formBgHeight !== bg.height ||
-        formBgRotation !== (bg.rotation ?? 0) ||
-        formBgLockAspect !== !!bg.lockAspectRatio ||
-        formZIndex !== bg.zIndex;
-
-    const handleSave = async () => {
-        setSaving(true);
-        try {
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(() => {
             const updates = {
                 name: formBgName,
                 x: formBgX,
@@ -89,11 +92,16 @@ export const BackgroundForm: React.FC<BackgroundFormProps> = ({ id, onDeleted })
                 zIndex: formZIndex,
             };
             updateBackground(id, updates);
-            await apiUpdateBackground(id, updates);
-        } finally {
-            setSaving(false);
-        }
-    };
+            void apiUpdateBackground(id, updates);
+        }, 600);
+
+        return () => {
+            if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formBgName, formBgX, formBgY, formBgWidth, formBgHeight, formBgRotation, formBgLockAspect, formZIndex]);
+
+    if (!bg) return null;
 
     const handleDelete = async () => {
         if (!confirmDelete) {
@@ -115,12 +123,6 @@ export const BackgroundForm: React.FC<BackgroundFormProps> = ({ id, onDeleted })
             <NumberInput label="Rotation (deg)" value={formBgRotation} onChange={(v) => setFormBgRotation(typeof v === 'number' ? v : 0)} min={0} max={360} step={1} size="sm" />
             <Switch label="Lock aspect ratio" checked={formBgLockAspect} onChange={(e) => setFormBgLockAspect(e.currentTarget.checked)} size="sm" />
             <NumberInput label="Order (z-index)" value={formZIndex} onChange={(v) => setFormZIndex(typeof v === 'number' ? v : 0)} min={0} step={1} size="sm" />
-
-            <Box>
-                <Button fullWidth size="sm" variant="filled" leftSection={<IconCheck />} loading={saving} disabled={!isDirty} onClick={handleSave}>
-                    Save
-                </Button>
-            </Box>
 
             <Divider />
 

@@ -241,6 +241,32 @@ export interface DncWorldmapMapPresenceRecord {
     };
 }
 
+export interface DncWorldmapTilesetRecord {
+    id: string;
+    name: string;
+    tile_size: number;
+    reference_image?: string;
+    description?: string;
+    /** Per-label draw strategy: 'all' = pure tiles only, 'some' = transition tiles allowed */
+    draw_hints?: Record<string, 'all' | 'some'>;
+    created: string;
+    updated: string;
+}
+
+export interface DncWorldmapTileRecord {
+    id: string;
+    name: string;
+    tileset_id: string;
+    image?: string;
+    /** JSON object: { weight?: number, sockets: { top, bottom, left, right } } */
+    wfc_definition: Record<string, unknown>;
+    created: string;
+    updated: string;
+    expand?: {
+        tileset_id?: DncWorldmapTilesetRecord;
+    };
+}
+
 export type CollectionRecords = {
     dnc_worldmap_maps: DncWorldmapMapRecord;
     dnc_worldmap_types: DncWorldmapElementTypeRecord;
@@ -255,4 +281,6 @@ export type CollectionRecords = {
     dnc_worldmap_invites: DncWorldmapInviteRecord;
     dnc_worldmap_users: DncWorldmapUsersRecord;
     dnc_worldmap_map_presence: DncWorldmapMapPresenceRecord;
+    dnc_worldmap_tilesets: DncWorldmapTilesetRecord;
+    dnc_worldmap_tiles: DncWorldmapTileRecord;
 };

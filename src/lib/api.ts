@@ -274,6 +274,57 @@ export async function fetchAssets(): Promise<{
     return { assets, categories };
 }
 
+export async function fetchAssetCategories(): Promise<DncWorldmapAssetCategoryRecord[]> {
+    return Hypb.pb.collection('dnc_worldmap_asset_categories').getFullList<DncWorldmapAssetCategoryRecord>({});
+}
+
+export async function fetchAllAssetTags(): Promise<string[]> {
+    const records = await Hypb.pb
+        .collection('dnc_worldmap_assets')
+        .getFullList<{ tags: string[] }>({ fields: 'tags' });
+    const set = new Set<string>();
+    records.forEach((r) => (r.tags || []).forEach((t) => set.add(t)));
+    return Array.from(set).sort();
+}
+
+const ASSET_SORT_MAP: Record<string, string> = {
+    'name-asc': 'name',
+    'name-desc': '-name',
+    'category-asc': 'category.name,name',
+    'category-desc': '-category.name,name',
+};
+
+export async function fetchAssetsPage(opts: {
+    page: number;
+    perPage?: number;
+    query?: string;
+    categoryId?: string | null;
+    tags?: string[];
+    sort?: string;
+}): Promise<{ items: DncWorldmapAssetRecord[]; totalPages: number; totalItems: number }> {
+    const pb = Hypb.pb;
+    const filters: string[] = [];
+    if (opts.query?.trim()) {
+        const q = opts.query.trim().replace(/"/g, '');
+        filters.push(`(name ~ "${q}" || tags ~ "${q}")`);
+    }
+    if (opts.categoryId) {
+        filters.push(`category = "${opts.categoryId}"`);
+    }
+    (opts.tags ?? []).forEach((tag) => {
+        filters.push(`tags ~ "${tag.replace(/"/g, '')}"`);
+    });
+    const result = await pb.collection('dnc_worldmap_assets').getList<DncWorldmapAssetRecord>(
+        opts.page,
+        opts.perPage ?? 24,
+        {
+            filter: filters.join(' && '),
+            sort: ASSET_SORT_MAP[opts.sort ?? 'name-asc'] ?? 'name',
+        }
+    );
+    return { items: result.items, totalPages: result.totalPages, totalItems: result.totalItems };
+}
+
 export async function createAssetCategory(name: string): Promise<DncWorldmapAssetCategoryRecord> {
     const pb = Hypb.pb;
     return pb.collection('dnc_worldmap_asset_categories').create<DncWorldmapAssetCategoryRecord>({ name });

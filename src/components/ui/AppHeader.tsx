@@ -1,6 +1,6 @@
 import { Hypb, logoutPB, useAuthContext } from '@hydevs/hypb';
 import { ActionIcon, AppShell, Avatar, Button, Group, Tooltip, Menu, Text, Title, useMatches } from '@mantine/core';
-import { IconArrowLeft, IconChevronDown, IconFileExport, IconSettings, IconUserCircle } from '@tabler/icons-react';
+import { IconArrowLeft, IconChevronDown, IconFileExport, IconMap, IconSettings, IconUserCircle, IconWand } from '@tabler/icons-react';
 import React, { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
 import { useCreateMapModal } from '../../hooks/useCreateMapModal';
@@ -53,6 +53,9 @@ export const AppHeader: React.FC = () => {
                                         Manage assets
                                     </Button>
                                 )}
+                                <Button visibleFrom="sm" component={NavLink} to="/generator" variant="outline" size="sm" leftSection={<IconWand size={14} />}>
+                                    Map Generator
+                                </Button>
                                 <Button onClick={openCreateMapModal} size="sm">
                                     New Map
                                 </Button>
@@ -60,6 +63,12 @@ export const AppHeader: React.FC = () => {
                         )}
 
                         {pathname.startsWith('/assets') && (
+                            <Button size="sm" variant="outline" onClick={() => navigate('/')}>
+                                Back to maps
+                            </Button>
+                        )}
+
+                        {pathname.startsWith('/generator') && (
                             <Button size="sm" variant="outline" onClick={() => navigate('/')}>
                                 Back to maps
                             </Button>

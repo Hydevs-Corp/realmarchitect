@@ -5,6 +5,7 @@ import { useMapStore } from '../../../store/useMapStore';
 import { PANEL_CONTAINER_STYLE } from './types';
 import { InfoPanelHeader } from './InfoPanelHeader';
 import { DrawingPanel } from './DrawingPanel';
+import { ImageBrushPanel } from './ImageBrushPanel';
 import { PoiForm } from './PoiForm';
 import { ZoneForm } from './ZoneForm';
 import { NoteForm } from './NoteForm';
@@ -60,6 +61,7 @@ export const InfoPanel: React.FC = () => {
     const { id, kind } = selectedElement;
 
     if (kind === 'drawing') return <DrawingPanel />;
+    if (kind === 'image-brush') return <ImageBrushPanel />;
 
     let name = '';
     let color: string | undefined;
@@ -151,7 +153,9 @@ export const InfoPanel: React.FC = () => {
                 onViewElements={() => setActiveZoneFilter(id)}
                 onClearFilter={() => setActiveZoneFilter(null)}
                 onCopy={copySelected}
-                onDuplicate={() => { void duplicateSelected(); }}
+                onDuplicate={() => {
+                    void duplicateSelected();
+                }}
                 onClose={() => setSelectedElement(null)}
             />
 

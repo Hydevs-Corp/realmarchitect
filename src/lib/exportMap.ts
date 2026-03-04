@@ -106,15 +106,9 @@ async function withResolvedImages<T>(stage: Konva.Stage, callback: () => T): Pro
         hidden: !node.visible(),
     }));
 
-    // Fetch each image as a blob URL.
-    // BackgroundItem stores the image as a tainted HTMLCanvasElement (an offscreen canvas
-    // created with ctx.drawImage from a cross-origin img).  That canvas has no .src, so we
-    // fall back to the custom 'exportUrl' Konva attribute set on the node.
     await Promise.all(
         entries.map(async (entry) => {
-            const src =
-                (entry.origImg as HTMLImageElement | undefined)?.src ??
-                (entry.node.getAttr('exportUrl') as string | undefined);
+            const src = (entry.origImg as HTMLImageElement | undefined)?.src ?? (entry.node.getAttr('exportUrl') as string | undefined);
             if (!src || src.startsWith('blob:') || src.startsWith('data:')) return;
             try {
                 const resp = await fetch(src);
@@ -259,7 +253,6 @@ function wrapSVGText(text: string, maxWidth: number, fontSize: number): string[]
                 line = candidate;
             } else {
                 if (line) result.push(line);
-                // word itself longer than maxChars → hard-break it
                 let remainder = word;
                 while (remainder.length > maxChars) {
                     result.push(remainder.slice(0, maxChars));
@@ -380,21 +373,15 @@ export function exportSVG(mapData: MapData, pois: POI[], zones: Zone[], notes: T
         const lineH = fs + 4;
         const padV = 8;
         const noteH = padV * 2 + allLines.length * lineH;
-        // Unique clip-path id per note so text can never bleed outside the rect
-        // (the wrapSVGText approximation can be slightly off for proportional fonts)
         const clipId = `nc_${xmlEsc(n.id)}`;
 
         out.push(`  <defs><clipPath id="${clipId}"><rect x="${n.x}" y="${n.y}" width="${w}" height="${noteH}"/></clipPath></defs>`);
         out.push(
-            `  <rect x="${n.x}" y="${n.y}" width="${w}" height="${noteH}" ` +
-                `fill="${xmlEsc(noteBg)}" fill-opacity="${noteOpacity}" stroke="#bbb" stroke-width="1" rx="4"/>`
+            `  <rect x="${n.x}" y="${n.y}" width="${w}" height="${noteH}" ` + `fill="${xmlEsc(noteBg)}" fill-opacity="${noteOpacity}" stroke="#bbb" stroke-width="1" rx="4"/>`
         );
         out.push(`  <g clip-path="url(#${clipId})">`);
         allLines.forEach((ln, i) => {
-            out.push(
-                `    <text x="${n.x + 8}" y="${n.y + padV + fs + i * lineH}" ` +
-                    `font-family="sans-serif" font-size="${fs}" fill="#333">${xmlEsc(ln)}</text>`
-            );
+            out.push(`    <text x="${n.x + 8}" y="${n.y + padV + fs + i * lineH}" ` + `font-family="sans-serif" font-size="${fs}" fill="#333">${xmlEsc(ln)}</text>`);
         });
         out.push(`  </g>`);
     }

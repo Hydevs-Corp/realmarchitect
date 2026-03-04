@@ -1,6 +1,6 @@
 import { Box, Button, ColorSwatch, Divider, Group, NumberInput, Select, Text, Textarea, TextInput } from '@mantine/core';
-import { IconCheck, IconTrash } from '@tabler/icons-react';
-import React, { useEffect, useState } from 'react';
+import { IconTrash } from '@tabler/icons-react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { deletePOI as apiDeletePOI, updatePOI as apiUpdatePOI } from '../../../lib/api';
 import { useMapStore } from '../../../store/useMapStore';
@@ -28,7 +28,7 @@ export const PoiForm: React.FC<PoiFormProps> = ({ id, onDeleted }) => {
     const [formPoitype, setFormPoitype] = useState(poi?.type ?? '');
     const [formPoiSize, setFormPoiSize] = useState<number>(poi?.size ?? 10);
     const [formZIndex, setFormZIndex] = useState<number>(poi?.zIndex ?? 0);
-    const [saving, setSaving] = useState(false);
+    const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(0);
     const [confirmDelete, setConfirmDelete] = useState(false);
 
     useEffect(() => {
@@ -41,14 +41,12 @@ export const PoiForm: React.FC<PoiFormProps> = ({ id, onDeleted }) => {
         setConfirmDelete(false);
     }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    if (!poi) return null;
-
-    const isDirty =
-        formName !== poi.name || formDescription !== (poi.description ?? '') || formPoitype !== poi.type || formPoiSize !== (poi.size ?? 10) || formZIndex !== poi.zIndex;
-
-    const handleSave = async () => {
-        setSaving(true);
-        try {
+    useEffect(() => {
+        if (!poi) return;
+        if (formName === poi.name && formDescription === (poi.description ?? '') && formPoitype === poi.type && formPoiSize === (poi.size ?? 10) && formZIndex === poi.zIndex)
+            return;
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(async () => {
             const selectedType = elementTypes.find((t) => t.id === formPoitype);
             const updates = {
                 name: formName,
@@ -60,10 +58,11 @@ export const PoiForm: React.FC<PoiFormProps> = ({ id, onDeleted }) => {
             };
             updatePoi(id, updates);
             await apiUpdatePOI(id, updates);
-        } finally {
-            setSaving(false);
-        }
-    };
+        }, 600);
+        return () => clearTimeout(saveTimerRef.current);
+    }, [formName, formDescription, formPoitype, formPoiSize, formZIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    if (!poi) return null;
 
     const handleDelete = async () => {
         if (!confirmDelete) {
@@ -99,12 +98,6 @@ export const PoiForm: React.FC<PoiFormProps> = ({ id, onDeleted }) => {
             <NumberInput label="Size" value={formPoiSize} onChange={(v) => setFormPoiSize(typeof v === 'number' ? v : 10)} min={4} max={100} step={1} size="sm" />
             <Textarea label="Description" value={formDescription} onChange={(e) => setFormDescription(e.currentTarget.value)} size="sm" autosize minRows={3} maxRows={8} />
             <NumberInput label="Order (z-index)" value={formZIndex} onChange={(v) => setFormZIndex(typeof v === 'number' ? v : 0)} min={0} step={1} size="sm" />
-
-            <Box>
-                <Button fullWidth size="sm" variant="filled" leftSection={<IconCheck />} loading={saving} disabled={!isDirty} onClick={handleSave}>
-                    Save
-                </Button>
-            </Box>
 
             <Divider />
 

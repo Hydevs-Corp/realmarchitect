@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Box, Button, ColorInput, Divider, NumberInput, Select, Textarea, TextInput } from '@mantine/core';
-import { IconCheck, IconTrash } from '@tabler/icons-react';
+import { IconTrash } from '@tabler/icons-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useMapStore } from '../../../store/useMapStore';
 import { updateZone as apiUpdateZone, deleteZone as apiDeleteZone } from '../../../lib/api';
@@ -28,7 +28,7 @@ export const ZoneForm: React.FC<ZoneFormProps> = ({ id, onDeleted }) => {
     const [formZoneColor, setFormZoneColor] = useState(zone?.color ?? '');
     const [formZonePattern, setFormZonePattern] = useState(zone?.pattern ?? '');
     const [formZIndex, setFormZIndex] = useState<number>(zone?.zIndex ?? 0);
-    const [saving, setSaving] = useState(false);
+    const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(0);
     const [confirmDelete, setConfirmDelete] = useState(false);
 
     useEffect(() => {
@@ -41,18 +41,18 @@ export const ZoneForm: React.FC<ZoneFormProps> = ({ id, onDeleted }) => {
         setConfirmDelete(false);
     }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    if (!zone) return null;
-
-    const isDirty =
-        formName !== zone.name ||
-        formDescription !== (zone.description ?? '') ||
-        formZoneColor !== zone.color ||
-        formZonePattern !== (zone.pattern ?? '') ||
-        formZIndex !== zone.zIndex;
-
-    const handleSave = async () => {
-        setSaving(true);
-        try {
+    useEffect(() => {
+        if (!zone) return;
+        if (
+            formName === zone.name &&
+            formDescription === (zone.description ?? '') &&
+            formZoneColor === zone.color &&
+            formZonePattern === (zone.pattern ?? '') &&
+            formZIndex === zone.zIndex
+        )
+            return;
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(async () => {
             const updates = {
                 name: formName,
                 description: formDescription,
@@ -62,10 +62,11 @@ export const ZoneForm: React.FC<ZoneFormProps> = ({ id, onDeleted }) => {
             };
             updateZone(id, updates);
             await apiUpdateZone(id, updates);
-        } finally {
-            setSaving(false);
-        }
-    };
+        }, 600);
+        return () => clearTimeout(saveTimerRef.current);
+    }, [formName, formDescription, formZoneColor, formZonePattern, formZIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    if (!zone) return null;
 
     const handleDelete = async () => {
         if (!confirmDelete) {
@@ -101,12 +102,6 @@ export const ZoneForm: React.FC<ZoneFormProps> = ({ id, onDeleted }) => {
                 size="sm"
             />
             <NumberInput label="Order (z-index)" value={formZIndex} onChange={(v) => setFormZIndex(typeof v === 'number' ? v : 0)} min={0} step={1} size="sm" />
-
-            <Box>
-                <Button fullWidth size="sm" variant="filled" leftSection={<IconCheck />} loading={saving} disabled={!isDirty} onClick={handleSave}>
-                    Save
-                </Button>
-            </Box>
 
             <Divider />
 

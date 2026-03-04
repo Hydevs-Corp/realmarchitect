@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Box, Button, ColorInput, Divider, NumberInput, Switch, Textarea } from '@mantine/core';
-import { IconCheck, IconTrash } from '@tabler/icons-react';
+import { IconTrash } from '@tabler/icons-react';
 import { useShallow } from 'zustand/react/shallow';
 import { Hypb } from '@hydevs/hypb';
 import { useMapStore } from '../../../store/useMapStore';
@@ -29,7 +29,7 @@ export const NoteForm: React.FC<NoteFormProps> = ({ id, onDeleted }) => {
     const [formNoteWidth, setFormNoteWidth] = useState<number | ''>(note?.width ?? '');
     const [formNoteIsComment, setFormNoteIsComment] = useState<boolean>(!!note?.author);
     const [formZIndex, setFormZIndex] = useState<number>(note?.zIndex ?? 0);
-    const [saving, setSaving] = useState(false);
+    const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(0);
     const [confirmDelete, setConfirmDelete] = useState(false);
 
     useEffect(() => {
@@ -43,19 +43,19 @@ export const NoteForm: React.FC<NoteFormProps> = ({ id, onDeleted }) => {
         setConfirmDelete(false);
     }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    if (!note) return null;
-
-    const isDirty =
-        formContent !== note.content ||
-        formNoteFontSize !== (note.fontSize ?? 14) ||
-        formNoteBgColor !== (note.bgColor ?? '#fff9c4ff') ||
-        formNoteWidth !== (note.width ?? '') ||
-        formZIndex !== note.zIndex ||
-        formNoteIsComment !== !!note.author;
-
-    const handleSave = async () => {
-        setSaving(true);
-        try {
+    useEffect(() => {
+        if (!note) return;
+        if (
+            formContent === note.content &&
+            formNoteFontSize === (note.fontSize ?? 14) &&
+            formNoteBgColor === (note.bgColor ?? '#fff9c4ff') &&
+            formNoteWidth === (note.width ?? '') &&
+            formZIndex === note.zIndex &&
+            formNoteIsComment === !!note.author
+        )
+            return;
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(async () => {
             const updates = {
                 content: formContent,
                 fontSize: formNoteFontSize,
@@ -66,10 +66,11 @@ export const NoteForm: React.FC<NoteFormProps> = ({ id, onDeleted }) => {
             };
             updateNote(id, updates);
             await apiUpdateNote(id, updates);
-        } finally {
-            setSaving(false);
-        }
-    };
+        }, 600);
+        return () => clearTimeout(saveTimerRef.current);
+    }, [formContent, formNoteFontSize, formNoteBgColor, formNoteWidth, formNoteIsComment, formZIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    if (!note) return null;
 
     const handleDelete = async () => {
         if (!confirmDelete) {
@@ -108,12 +109,6 @@ export const NoteForm: React.FC<NoteFormProps> = ({ id, onDeleted }) => {
             />
             <NumberInput label="Order (z-index)" value={formZIndex} onChange={(v) => setFormZIndex(typeof v === 'number' ? v : 0)} min={0} step={1} size="sm" />
             <Switch label="Comment (link to your account)" checked={formNoteIsComment} onChange={(e) => setFormNoteIsComment(e.currentTarget.checked)} size="sm" />
-
-            <Box>
-                <Button fullWidth size="sm" variant="filled" leftSection={<IconCheck />} loading={saving} disabled={!isDirty} onClick={handleSave}>
-                    Save
-                </Button>
-            </Box>
 
             <Divider />
 
