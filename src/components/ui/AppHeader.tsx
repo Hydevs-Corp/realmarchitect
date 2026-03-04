@@ -1,14 +1,14 @@
 import { Hypb, logoutPB, useAuthContext } from '@hydevs/hypb';
-import { ActionIcon, AppShell, Avatar, Button, Group, Tooltip, Menu, Text, Title, useMatches } from '@mantine/core';
-import { IconArrowLeft, IconChevronDown, IconFileExport, IconMap, IconSettings, IconUserCircle, IconWand } from '@tabler/icons-react';
+import { ActionIcon, AppShell, Avatar, Button, Group, Menu, Text, Title, Tooltip, useMatches } from '@mantine/core';
+import { IconArrowLeft, IconChevronDown, IconFileExport, IconSettings, IconUserCircle, IconWand } from '@tabler/icons-react';
 import React, { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
+import { mainColor } from '../../constants';
 import { useCreateMapModal } from '../../hooks/useCreateMapModal';
 import useMapPresence from '../../hooks/useMapPresence';
 import { useMapStore } from '../../store/useMapStore';
-import { MapSettingsModal } from './MapSettingsModal';
 import { ExportImportModal } from './ExportImportModal';
-import { mainColor } from '../../constants';
+import { MapSettingsModal } from './MapSettingsModal';
 
 export const AppHeader: React.FC = () => {
     const { userData } = useAuthContext();
