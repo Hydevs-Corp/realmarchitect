@@ -508,7 +508,7 @@ export function ElementsPanel() {
                 containerTop = Math.max(0, containerRect.top - panelRect.top);
             }
             const computed = Math.max(120, panelH - containerTop - 12);
-            setListHeight(computed);
+            setListHeight(computed - 70);
         }
         update();
         window.addEventListener('resize', update);
@@ -523,8 +523,7 @@ export function ElementsPanel() {
         [searchQuery]
     );
 
-    const anyVisible =
-        images.some((b) => !b.hidden) || zones.some((z) => !z.hidden) || pois.some((p) => !p.hidden) || notes.some((n) => !n.hidden) || lines.some((l) => !l.hidden);
+    const anyVisible = images.some((b) => !b.hidden) || zones.some((z) => !z.hidden) || pois.some((p) => !p.hidden) || notes.some((n) => !n.hidden) || lines.some((l) => !l.hidden);
 
     const hideOthers = (keepId: string) => {
         setAllElementsHidden(true);
@@ -761,7 +760,7 @@ export function ElementsPanel() {
                 pointerEvents: 'auto',
                 top: 0,
                 left: 0,
-                bottom: 115,
+                bottom: 0,
                 width: 280,
                 backgroundColor: 'var(--mantine-color-body)',
                 borderRight: '1px solid var(--mantine-color-default-border)',
@@ -924,7 +923,7 @@ export function ElementsPanel() {
 
                     <Tabs.Panel value="elements">
                         <Stack gap={6} p={8} style={{ height: '100%' }}>
-                            <Group justify="space-between" wrap="nowrap">
+                            <Group justify="space-between" gap={'xs'} wrap="nowrap">
                                 <Group gap={4} wrap="wrap">
                                     <Tooltip label={`Images (${images.length})`}>
                                         <ActionIcon

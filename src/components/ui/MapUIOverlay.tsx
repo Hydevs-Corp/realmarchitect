@@ -309,7 +309,7 @@ export const MapUIOverlay: React.FC = () => {
             <MapSpotlight />
             <ElementsPanel />
 
-            <Affix left={0} bottom={0} w={'fit-content'}>
+            <Affix left={0} bottom={0} zIndex={2000} w={'fit-content'}>
                 <Group gap={'xs'}>
                     <Paper
                         shadow="md"
@@ -386,11 +386,7 @@ export const MapUIOverlay: React.FC = () => {
                                             variant={creationMode === mode ? 'filled' : 'default'}
                                             color={creationMode === mode ? mainColor : 'gray'}
                                             onClick={() =>
-                                                mode === 'draw'
-                                                    ? handleSetDraw()
-                                                    : mode === 'image'
-                                                      ? handleSetImage()
-                                                      : setCreationMode(creationMode === mode ? 'none' : mode)
+                                                mode === 'draw' ? handleSetDraw() : mode === 'image' ? handleSetImage() : setCreationMode(creationMode === mode ? 'none' : mode)
                                             }
                                         >
                                             {icon}

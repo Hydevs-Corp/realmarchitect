@@ -64,7 +64,7 @@ export const ImageForm: React.FC<ImageFormProps> = ({ id, onDeleted }) => {
         setFormBgHeight(_h);
         setFormBgRotation(_rot ?? 0);
         setFormBgLockAspect(!!_lock);
-    }, [_x, _y, _w, _h, _rot, _lock]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [_x, _y, _w, _h, _rot, _lock]);
 
     useEffect(() => {
         if (!bg) return;
@@ -131,6 +131,7 @@ export const ImageForm: React.FC<ImageFormProps> = ({ id, onDeleted }) => {
                     Opacity ({Math.round(formOpacity * 100)}%)
                 </Text>
                 <Slider
+                    w={'97%'}
                     value={Math.round(formOpacity * 100)}
                     onChange={(v) => setFormOpacity(v / 100)}
                     min={0}

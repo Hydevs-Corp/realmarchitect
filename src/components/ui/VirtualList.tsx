@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 
 export default function VirtualList<T extends { id: string }>({
@@ -16,14 +16,15 @@ export default function VirtualList<T extends { id: string }>({
 }) {
     const internalRef = useRef<HTMLDivElement | null>(null);
 
-    const getScrollElement = () => {
-        return (scrollRef && scrollRef.current) || internalRef.current;
-    };
+    const getScrollElement = useCallback(() => (scrollRef && scrollRef.current) || internalRef.current, [scrollRef]);
 
+    const estimateSize = useCallback(() => itemHeight, [itemHeight]);
+
+    // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer is a known incompatible library; safe to use here without memoization
     const rowVirtualizer = useVirtualizer({
         count: items.length,
         getScrollElement,
-        estimateSize: () => itemHeight,
+        estimateSize: estimateSize,
         overscan: 6,
     });
 
