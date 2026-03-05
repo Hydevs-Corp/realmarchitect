@@ -107,7 +107,7 @@ export const NoteForm: React.FC<NoteFormProps> = ({ id, onDeleted }) => {
                 size="sm"
                 placeholder="Auto"
             />
-            <NumberInput label="Order (z-index)" value={formZIndex} onChange={(v) => setFormZIndex(typeof v === 'number' ? v : 0)} min={0} step={1} size="sm" />
+            <NumberInput label="Order (z-index)" value={formZIndex} onChange={(v) => setFormZIndex(typeof v === 'number' ? v : 0)} min={-100} step={1} size="sm" />
             <Switch label="Comment (link to your account)" checked={formNoteIsComment} onChange={(e) => setFormNoteIsComment(e.currentTarget.checked)} size="sm" />
 
             <Divider />

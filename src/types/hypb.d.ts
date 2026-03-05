@@ -1,5 +1,5 @@
 import {
-    DncWorldmapBackgroundRecord,
+    DncWorldmapImageRecord,
     DncWorldmapMapRecord,
     DncWorldmapNoteRecord,
     DncWorldmapPoiRecord,
@@ -11,7 +11,7 @@ import {
 
 declare module '@hydevs/hypb' {
     interface Collections {
-        dnc_worldmap_image: DncWorldmapBackgroundRecord;
+        dnc_worldmap_image: DncWorldmapImageRecord;
         dnc_worldmap_maps: DncWorldmapMapRecord;
         dnc_worldmap_notes: DncWorldmapNoteRecord;
         dnc_worldmap_pois: DncWorldmapPoiRecord;

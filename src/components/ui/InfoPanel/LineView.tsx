@@ -11,13 +11,13 @@ interface LineViewProps {
 }
 
 export const LineView: React.FC<LineViewProps> = ({ id }) => {
-    const { lines, pois, zones, notes, backgrounds, updateLine } = useMapStore(
+    const { lines, pois, zones, notes, images, updateLine } = useMapStore(
         useShallow((state) => ({
             lines: state.lines,
             pois: state.pois,
             zones: state.zones,
             notes: state.notes,
-            backgrounds: state.backgrounds,
+            images: state.images,
             updateLine: state.updateLine,
         }))
     );
@@ -34,8 +34,8 @@ export const LineView: React.FC<LineViewProps> = ({ id }) => {
         } else if (line.aAttachedKind === 'note') {
             const n = notes.find((n) => n.id === line.aAttachedId);
             if (n) { absX = n.x + line.x; absY = n.y + line.y; }
-        } else if (line.aAttachedKind === 'background') {
-            const b = backgrounds.find((b) => b.id === line.aAttachedId);
+        } else if (line.aAttachedKind === 'image') {
+            const b = images.find((b) => b.id === line.aAttachedId);
             if (b) { absX = b.x + line.x; absY = b.y + line.y; }
         }
         const updates = { x: absX, y: absY, aAttachedId: undefined, aAttachedKind: undefined };
@@ -52,8 +52,8 @@ export const LineView: React.FC<LineViewProps> = ({ id }) => {
         } else if (line.bAttachedKind === 'note') {
             const n = notes.find((n) => n.id === line.bAttachedId);
             if (n) { absX = n.x + line.bx; absY = n.y + line.by; }
-        } else if (line.bAttachedKind === 'background') {
-            const b = backgrounds.find((b) => b.id === line.bAttachedId);
+        } else if (line.bAttachedKind === 'image') {
+            const b = images.find((b) => b.id === line.bAttachedId);
             if (b) { absX = b.x + line.bx; absY = b.y + line.by; }
         }
         const updates = { bx: absX, by: absY, bAttachedId: undefined, bAttachedKind: undefined };
@@ -66,7 +66,7 @@ export const LineView: React.FC<LineViewProps> = ({ id }) => {
         if (attachedKind === 'poi') return pois.find((p) => p.id === attachedId)?.name || 'POI';
         if (attachedKind === 'zone') return zones.find((z) => z.id === attachedId)?.name || 'Zone';
         if (attachedKind === 'note') return notes.find((n) => n.id === attachedId)?.content.slice(0, 20) || 'Note';
-        if (attachedKind === 'background') return backgrounds.find((b) => b.id === attachedId)?.name || 'Image';
+        if (attachedKind === 'image') return images.find((b) => b.id === attachedId)?.name || 'Image';
         return null;
     };
 

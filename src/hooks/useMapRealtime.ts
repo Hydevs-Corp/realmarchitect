@@ -6,7 +6,7 @@ import type {
     DncWorldmapPoiRecord,
     DncWorldmapZoneRecord,
     DncWorldmapNoteRecord,
-    DncWorldmapBackgroundRecord,
+    DncWorldmapImageRecord,
     DncWorldmapLineRecord,
     DncWorldmapDrawingStrokeRecord,
     DncWorldmapGroupRecord,
@@ -82,8 +82,8 @@ export function useMapRealtime(mapId: string | undefined) {
             };
         }
 
-        function recordToBackground(r: PBRecord) {
-            const raw = r as unknown as DncWorldmapBackgroundRecord;
+        function recordToImage(r: PBRecord) {
+            const raw = r as unknown as DncWorldmapImageRecord;
             return {
                 id: raw.id,
                 mapId: raw.map_id,
@@ -205,9 +205,9 @@ export function useMapRealtime(mapId: string | undefined) {
                 if (e.record['map_id'] !== mapId) return;
                 const s = useMapStore.getState();
 
-                const bg = recordToBackground(e.record);
+                const bg = recordToImage(e.record);
 
-                const maybeAssetId = (e.record as unknown as DncWorldmapBackgroundRecord).asset_id ?? null;
+                const maybeAssetId = (e.record as unknown as DncWorldmapImageRecord).asset_id ?? null;
                 if (maybeAssetId && typeof maybeAssetId === 'string') {
                     void pb
                         .collection('dnc_worldmap_assets')
@@ -216,29 +216,29 @@ export function useMapRealtime(mapId: string | undefined) {
                             const assetUrl = pb.files.getURL(asset, asset.file);
                             const bgWithAsset = { ...bg, imageUrl: assetUrl, assetId: maybeAssetId };
                             if (e.action === 'create') {
-                                if (!s.backgrounds.some((b) => b.id === bgWithAsset.id)) s._remoteAddBackground(bgWithAsset);
+                                if (!s.images.some((b) => b.id === bgWithAsset.id)) s._remoteAddImage(bgWithAsset);
                             } else if (e.action === 'update') {
-                                s._remoteUpdateBackground(e.record.id, bgWithAsset);
+                                s._remoteUpdateImage(e.record.id, bgWithAsset);
                             } else if (e.action === 'delete') {
-                                s._remoteDeleteBackground(e.record.id);
+                                s._remoteDeleteImage(e.record.id);
                             }
                         })
                         .catch(() => {
                             if (e.action === 'create') {
-                                if (!s.backgrounds.some((b) => b.id === bg.id)) s._remoteAddBackground(bg);
+                                if (!s.images.some((b) => b.id === bg.id)) s._remoteAddImage(bg);
                             } else if (e.action === 'update') {
-                                s._remoteUpdateBackground(e.record.id, bg);
+                                s._remoteUpdateImage(e.record.id, bg);
                             } else if (e.action === 'delete') {
-                                s._remoteDeleteBackground(e.record.id);
+                                s._remoteDeleteImage(e.record.id);
                             }
                         });
                 } else {
                     if (e.action === 'create') {
-                        if (!s.backgrounds.some((b) => b.id === bg.id)) s._remoteAddBackground(bg);
+                        if (!s.images.some((b) => b.id === bg.id)) s._remoteAddImage(bg);
                     } else if (e.action === 'update') {
-                        s._remoteUpdateBackground(e.record.id, bg);
+                        s._remoteUpdateImage(e.record.id, bg);
                     } else if (e.action === 'delete') {
-                        s._remoteDeleteBackground(e.record.id);
+                        s._remoteDeleteImage(e.record.id);
                     }
                 }
             })

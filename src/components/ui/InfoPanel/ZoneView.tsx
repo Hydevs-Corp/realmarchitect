@@ -16,16 +16,24 @@ export const ZoneView: React.FC<ZoneViewProps> = ({ id }) => {
     return (
         <>
             <div>
-                <Text size="xs" c="dimmed" mb={2}>Name</Text>
-                <Text size="sm" fw={500}>{zone.name || '—'}</Text>
+                <Text size="xs" c="dimmed" mb={2}>
+                    Name
+                </Text>
+                <Text size="sm" fw={500}>
+                    {zone.name || '—'}
+                </Text>
             </div>
             {zone.description ? (
                 <div>
-                    <Text size="xs" c="dimmed" mb={2}>Description</Text>
+                    <Text size="xs" c="dimmed" mb={2}>
+                        Description
+                    </Text>
                     <Text size="sm">{zone.description}</Text>
                 </div>
             ) : (
-                <Text size="xs" c="dimmed" fs="italic">No description</Text>
+                <Text size="xs" c="dimmed" fs="italic">
+                    No description
+                </Text>
             )}
             <Group gap="xs" align="center">
                 <div
@@ -42,13 +50,23 @@ export const ZoneView: React.FC<ZoneViewProps> = ({ id }) => {
             </Group>
             {zone.pattern && (
                 <div>
-                    <Text size="xs" c="dimmed" mb={2}>Pattern</Text>
+                    <Text size="xs" c="dimmed" mb={2}>
+                        Pattern
+                    </Text>
                     <Text size="sm">{ZONE_PATTERNS.find((p) => p.value === zone.pattern)?.label ?? zone.pattern}</Text>
                 </div>
             )}
             <div>
-                <Text size="xs" c="dimmed" mb={2}>Order (z-index)</Text>
+                <Text size="xs" c="dimmed" mb={2}>
+                    Order (z-index)
+                </Text>
                 <Text size="sm">{zone.zIndex ?? 0}</Text>
+            </div>
+            <div>
+                <Text size="xs" c="dimmed" mb={2}>
+                    Smooth edges
+                </Text>
+                <Text size="sm">{zone.smooth ? 'Yes' : 'No'}</Text>
             </div>
         </>
     );

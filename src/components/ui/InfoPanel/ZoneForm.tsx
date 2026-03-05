@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, Button, ColorInput, Divider, NumberInput, Select, Textarea, TextInput } from '@mantine/core';
+import { Box, Button, ColorInput, Divider, NumberInput, Select, Switch, Textarea, TextInput } from '@mantine/core';
 import { IconTrash } from '@tabler/icons-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useMapStore } from '../../../store/useMapStore';
@@ -28,6 +28,7 @@ export const ZoneForm: React.FC<ZoneFormProps> = ({ id, onDeleted }) => {
     const [formZoneColor, setFormZoneColor] = useState(zone?.color ?? '');
     const [formZonePattern, setFormZonePattern] = useState(zone?.pattern ?? '');
     const [formZIndex, setFormZIndex] = useState<number>(zone?.zIndex ?? 0);
+    const [formSmooth, setFormSmooth] = useState<boolean>(zone?.smooth ?? false);
     const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(0);
     const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -38,6 +39,7 @@ export const ZoneForm: React.FC<ZoneFormProps> = ({ id, onDeleted }) => {
         setFormZoneColor(zone.color);
         setFormZonePattern(zone.pattern ?? '');
         setFormZIndex(zone.zIndex);
+        setFormSmooth(zone.smooth ?? false);
         setConfirmDelete(false);
     }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -48,7 +50,8 @@ export const ZoneForm: React.FC<ZoneFormProps> = ({ id, onDeleted }) => {
             formDescription === (zone.description ?? '') &&
             formZoneColor === zone.color &&
             formZonePattern === (zone.pattern ?? '') &&
-            formZIndex === zone.zIndex
+            formZIndex === zone.zIndex &&
+            formSmooth === (zone.smooth ?? false)
         )
             return;
         clearTimeout(saveTimerRef.current);
@@ -59,12 +62,13 @@ export const ZoneForm: React.FC<ZoneFormProps> = ({ id, onDeleted }) => {
                 color: formZoneColor,
                 pattern: formZonePattern,
                 zIndex: formZIndex,
+                smooth: formSmooth,
             };
             updateZone(id, updates);
             await apiUpdateZone(id, updates);
         }, 600);
         return () => clearTimeout(saveTimerRef.current);
-    }, [formName, formDescription, formZoneColor, formZonePattern, formZIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [formName, formDescription, formZoneColor, formZonePattern, formZIndex, formSmooth]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (!zone) return null;
 
@@ -101,7 +105,8 @@ export const ZoneForm: React.FC<ZoneFormProps> = ({ id, onDeleted }) => {
                 styles={{ dropdown: { zIndex: 2100 } }}
                 size="sm"
             />
-            <NumberInput label="Order (z-index)" value={formZIndex} onChange={(v) => setFormZIndex(typeof v === 'number' ? v : 0)} min={0} step={1} size="sm" />
+            <NumberInput label="Order (z-index)" value={formZIndex} onChange={(v) => setFormZIndex(typeof v === 'number' ? v : 0)} min={-100} step={1} size="sm" />
+            <Switch label="Smooth edges" checked={formSmooth} onChange={(e) => setFormSmooth(e.currentTarget.checked)} size="sm" />
 
             <Divider />
 

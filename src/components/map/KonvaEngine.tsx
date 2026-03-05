@@ -25,16 +25,10 @@ function closestPointOnSegment(p: { x: number; y: number }, a: { x: number; y: n
 }
 
 import { useShallow } from 'zustand/react/shallow';
-import {
-    updateBackground as apiUpdateBackground,
-    updateLine as apiUpdateLine,
-    updateNote as apiUpdateNote,
-    updatePOI as apiUpdatePOI,
-    updateZone as apiUpdateZone,
-} from '../../lib/api';
+import { updateImage as apiUpdateImage, updateLine as apiUpdateLine, updateNote as apiUpdateNote, updatePOI as apiUpdatePOI, updateZone as apiUpdateZone } from '../../lib/api';
 import { setStageRef } from '../../lib/stageRef';
 import { useMapStore } from '../../store/useMapStore';
-import type { Background, DrawStroke, LineAttachKind, MapLine, POI, TextNote, Zone } from '../../types/map';
+import type { MapImage, DrawStroke, LineAttachKind, MapLine, POI, TextNote, Zone } from '../../types/map';
 
 const MIDDLE_BUTTON = 1;
 const RIGHT_BUTTON = 2;
@@ -55,7 +49,7 @@ function resolveAttachment(
     pois: POI[],
     zones: Zone[],
     notes: TextNote[],
-    backgrounds: Background[]
+    images: MapImage[]
 ): { x: number; y: number } {
     if (!attachedId || !attachedKind) return { x: fallbackX, y: fallbackY };
 
@@ -86,8 +80,8 @@ function resolveAttachment(
     } else if (attachedKind === 'note') {
         const e = notes.find((n) => n.id === attachedId);
         if (e) return { x: e.x + fallbackX, y: e.y + fallbackY };
-    } else if (attachedKind === 'background') {
-        const e = backgrounds.find((b) => b.id === attachedId);
+    } else if (attachedKind === 'image') {
+        const e = images.find((b) => b.id === attachedId);
         if (e) return { x: e.x + fallbackX, y: e.y + fallbackY };
     }
     return { x: fallbackX, y: fallbackY };
@@ -127,8 +121,8 @@ function lineInViewport(ax: number, ay: number, bx: number, by: number, vp: View
     return Math.max(ax, bx) >= vp.left && Math.min(ax, bx) <= vp.right && Math.max(ay, by) >= vp.top && Math.min(ay, by) <= vp.bottom;
 }
 
-const BackgroundItem: React.FC<{
-    background: Background;
+const ImageItem: React.FC<{
+    img: MapImage;
     editMode: boolean;
     selected: boolean;
     isMultiSelected: boolean;
@@ -137,90 +131,120 @@ const BackgroundItem: React.FC<{
     onDragMove?: (totalDx: number, totalDy: number) => void;
     onDragEnd: (pos: { x: number; y: number }) => void;
     onResize: (updates: { x: number; y: number; width: number; height: number; rotation?: number }) => void;
-    onNodeRef?: (bgId: string, node: Konva.Image | null) => void;
-}> = ({ background, editMode, selected, isMultiSelected, onSelect, onDragStart, onDragMove, onDragEnd, onResize, onNodeRef }) => {
+    onNodeRef?: (bgId: string, node: Konva.Shape | null) => void;
+}> = ({ img, editMode, selected, isMultiSelected, onSelect, onDragStart, onDragMove, onDragEnd, onResize, onNodeRef }) => {
     const dragStartRef = useRef<{ x: number; y: number } | null>(null);
-    const [image] = useImage(background.imageUrl);
+    const [image] = useImage(img.tileEnabled ? '' : img.imageUrl);
+    const [tileImage] = useImage(img.tileEnabled && img.tileUrl ? img.tileUrl : '');
     const imageRef = useRef<Konva.Image>(null);
+    const tileRectRef = useRef<Konva.Rect>(null);
 
     const rasterized = useMemo<HTMLCanvasElement | null>(() => {
-        if (!image) return null;
+        if (img.tileEnabled || !image) return null;
         const offscreen = document.createElement('canvas');
-        offscreen.width = background.width;
-        offscreen.height = background.height;
+        offscreen.width = img.width;
+        offscreen.height = img.height;
         const ctx = offscreen.getContext('2d');
         if (!ctx) return null;
-        ctx.drawImage(image, 0, 0, background.width, background.height);
+        ctx.drawImage(image, 0, 0, img.width, img.height);
         return offscreen;
-    }, [image, background.width, background.height]);
+    }, [image, img.tileEnabled, img.width, img.height]);
+
+    const tilePatternCanvas = useMemo<HTMLCanvasElement | null>(() => {
+        if (!img.tileEnabled || !tileImage) return null;
+        const tw = img.tileSizeW ?? 64;
+        const th = img.tileSizeH ?? 64;
+        const sx = img.tileSpacingX ?? 0;
+        const sy = img.tileSpacingY ?? 0;
+        const offscreen = document.createElement('canvas');
+        offscreen.width = Math.max(1, tw + sx);
+        offscreen.height = Math.max(1, th + sy);
+        const ctx = offscreen.getContext('2d');
+        if (!ctx) return null;
+        ctx.drawImage(tileImage, 0, 0, tw, th);
+        return offscreen;
+    }, [tileImage, img.tileEnabled, img.tileSizeW, img.tileSizeH, img.tileSpacingX, img.tileSpacingY]);
 
     useEffect(() => {
-        onNodeRef?.(background.id, imageRef.current);
+        const node = img.tileEnabled ? tileRectRef.current : imageRef.current;
+        onNodeRef?.(img.id, node);
         return () => {
-            onNodeRef?.(background.id, null);
+            onNodeRef?.(img.id, null);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [img.tileEnabled]);
+
+    const commonProps = {
+        x: img.x,
+        y: img.y,
+        offsetX: img.width / 2,
+        offsetY: img.height / 2,
+        rotation: img.rotation ?? 0,
+        width: img.width,
+        height: img.height,
+        opacity: img.opacity ?? 1,
+        perfectDrawEnabled: false,
+        draggable: editMode,
+        onClick: (e: Konva.KonvaEventObject<MouseEvent>) => {
+            if (e.evt.button === 0) {
+                onSelect(e.evt.shiftKey);
+                e.cancelBubble = true;
+            }
+        },
+        onDragStart: (e: Konva.KonvaEventObject<DragEvent>) => {
+            dragStartRef.current = { x: e.target.x(), y: e.target.y() };
+            onDragStart?.();
+        },
+        onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => {
+            if (dragStartRef.current && onDragMove) {
+                onDragMove(e.target.x() - dragStartRef.current.x, e.target.y() - dragStartRef.current.y);
+            }
+        },
+        onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => {
+            dragStartRef.current = null;
+            onDragEnd({ x: r2(e.target.x()), y: r2(e.target.y()) });
+        },
+        onTransformEnd: (e: Konva.KonvaEventObject<Event>) => {
+            const node = e.target;
+            const sx = node.scaleX();
+            const sy = node.scaleY();
+            const newWidth = r2(node.width() * sx);
+            const newHeight = r2(node.height() * sy);
+            const newRotation = r2(node.rotation() || 0);
+            node.scaleX(1);
+            node.scaleY(1);
+            onResize({
+                x: r2(node.x()),
+                y: r2(node.y()),
+                width: newWidth,
+                height: newHeight,
+                rotation: newRotation,
+            });
+        },
+        listening: !img.locked,
+    };
 
     return (
         <>
-            <KonvaImage
-                ref={imageRef}
-                image={rasterized ?? image}
-                x={background.x}
-                y={background.y}
-                offsetX={background.width / 2}
-                offsetY={background.height / 2}
-                rotation={background.rotation ?? 0}
-                width={background.width}
-                height={background.height}
-                perfectDrawEnabled={false}
-                draggable={editMode}
-                exportUrl={background.imageUrl}
-                onClick={(e) => {
-                    if (e.evt.button === 0) {
-                        onSelect(e.evt.shiftKey);
-                        e.cancelBubble = true;
-                    }
-                }}
-                onDragStart={(e) => {
-                    dragStartRef.current = { x: e.target.x(), y: e.target.y() };
-                    onDragStart?.();
-                }}
-                onDragMove={(e) => {
-                    if (dragStartRef.current && onDragMove) {
-                        onDragMove(e.target.x() - dragStartRef.current.x, e.target.y() - dragStartRef.current.y);
-                    }
-                }}
-                onDragEnd={(e) => {
-                    dragStartRef.current = null;
-                    onDragEnd({ x: r2(e.target.x()), y: r2(e.target.y()) });
-                }}
-                onTransformEnd={(e) => {
-                    const node = e.target;
-                    const sx = node.scaleX();
-                    const sy = node.scaleY();
-                    const newWidth = r2(node.width() * sx);
-                    const newHeight = r2(node.height() * sy);
-                    const newRotation = r2(node.rotation() || 0);
-                    node.scaleX(1);
-                    node.scaleY(1);
-                    onResize({
-                        x: r2(node.x()),
-                        y: r2(node.y()),
-                        width: newWidth,
-                        height: newHeight,
-                        rotation: newRotation,
-                    });
-                }}
-            />
+            {img.tileEnabled ? (
+                <Rect
+                    {...commonProps}
+                    ref={tileRectRef}
+                    fillPatternImage={(tilePatternCanvas ?? undefined) as HTMLImageElement | undefined}
+                    fillPatternRepeat="repeat"
+                    fillPatternOffsetX={-(img.tileOffsetX ?? 0)}
+                    fillPatternOffsetY={-(img.tileOffsetY ?? 0)}
+                />
+            ) : (
+                <KonvaImage {...commonProps} ref={imageRef} image={rasterized ?? image} exportUrl={img.imageUrl} />
+            )}
             {selected && !editMode && (
                 <Rect
-                    x={background.x - background.width / 2}
-                    y={background.y - background.height / 2}
-                    width={background.width}
-                    height={background.height}
-                    rotation={background.rotation ?? 0}
+                    x={img.x - img.width / 2}
+                    y={img.y - img.height / 2}
+                    width={img.width}
+                    height={img.height}
+                    rotation={img.rotation ?? 0}
                     stroke="#60cdff"
                     strokeWidth={2}
                     dash={[8, 4]}
@@ -230,11 +254,11 @@ const BackgroundItem: React.FC<{
             )}
             {isMultiSelected && !selected && (
                 <Rect
-                    x={background.x - background.width / 2}
-                    y={background.y - background.height / 2}
-                    width={background.width}
-                    height={background.height}
-                    rotation={background.rotation ?? 0}
+                    x={img.x - img.width / 2}
+                    y={img.y - img.height / 2}
+                    width={img.width}
+                    height={img.height}
+                    rotation={img.rotation ?? 0}
                     stroke="#ff9800"
                     strokeWidth={2}
                     dash={[8, 4]}
@@ -261,19 +285,19 @@ const PoiItem = React.memo<{
         const radius = poi.size ?? 10;
 
         const initials = poi.name
-            .split(' ')
-            .map((w) => w.charAt(0))
+            .split('')
             .filter((c) => c.match(/[A-Z0-9]/))
-            .join('')
-            .slice(0, 2);
+            .join('');
 
-        const fontSize = initials.length < 2 ? radius * 1.6 : radius * 1;
+        // const fontSize = initials.length < 2 ? radius * 1.6 : radius * 1;
+        const fontSize = (radius * 1.2) / Math.max(1, initials.length / 2);
 
         return (
             <Group
                 x={poi.x}
                 y={poi.y}
                 draggable={editMode}
+                listening={!poi.locked}
                 onClick={(e) => {
                     if (e.evt.button === 0) {
                         onSelect(e.evt.shiftKey);
@@ -366,26 +390,13 @@ const ZoneItem: React.FC<{
     editMode: boolean;
     selected: boolean;
     isMultiSelected: boolean;
-    onPointMove: (index: number, x: number, y: number) => void;
-    onPointDragEnd: (index: number, x: number, y: number) => void;
-    onDeletePoint: (index: number) => void;
     onAddPoint: (afterIndex: number, x: number, y: number) => void;
     onSelect: (shiftKey?: boolean) => void;
-    onMoveStart?: () => void;
-    onMove: (dx: number, dy: number, totalDelta: { dx: number; dy: number }) => void;
-    onMoveEnd: (newPoints: number[], totalDelta: { dx: number; dy: number }) => void;
-}> = ({ zone, editMode, selected, isMultiSelected, onPointMove, onPointDragEnd, onDeletePoint, onAddPoint, onSelect, onMoveStart, onMove, onMoveEnd }) => {
+}> = ({ zone, editMode, selected, isMultiSelected, onAddPoint, onSelect }) => {
     const points: { x: number; y: number }[] = [];
     for (let i = 0; i < zone.points.length; i += 2) {
         points.push({ x: zone.points[i], y: zone.points[i + 1] });
     }
-
-    const cx = points.reduce((s, p) => s + p.x, 0) / points.length;
-    const cy = points.reduce((s, p) => s + p.y, 0) / points.length;
-
-    const moveHandleDragRef = useRef<{ x: number; y: number } | null>(null);
-
-    const moveHandleTotalDelta = useRef({ dx: 0, dy: 0 });
 
     const patternCanvas = useMemo<HTMLCanvasElement | null>(() => {
         if (!zone.pattern) return null;
@@ -416,10 +427,11 @@ const ZoneItem: React.FC<{
 
     return (
         <React.Fragment>
-            <Line points={zone.points} fill={zone.color} closed listening={false} opacity={selected ? 0.3 : 0.2} perfectDrawEnabled={false} />
+            <Line points={zone.points} fill={zone.color} closed listening={false} opacity={selected ? 0.3 : 0.2} perfectDrawEnabled={false} tension={zone.smooth ? 0.5 : 0} />
             <Line
                 points={zone.points}
                 fill={patternCanvas ? undefined : zone.color}
+                tension={zone.smooth ? 0.5 : 0}
                 fillPatternImage={(patternCanvas ?? undefined) as HTMLImageElement | undefined}
                 fillPatternRepeat="repeat"
                 closed
@@ -427,6 +439,7 @@ const ZoneItem: React.FC<{
                 strokeWidth={isMultiSelected || selected ? 3 : editMode ? 2 : 1}
                 opacity={isMultiSelected || selected ? 0.8 : 0.7}
                 hitStrokeWidth={editMode ? 12 : 8}
+                listening={!zone.locked}
                 onClick={(e) => {
                     if (e.evt.button === 0) {
                         onSelect(e.evt.shiftKey);
@@ -435,6 +448,33 @@ const ZoneItem: React.FC<{
                 }}
                 onDblClick={handleLineDblClick}
             />
+        </React.Fragment>
+    );
+};
+
+/** Handles (vertex dots + move circle) for the selected zone – rendered in a top-level Layer */
+const ZoneHandles: React.FC<{
+    zone: Zone;
+    editMode: boolean;
+    onPointMove: (index: number, x: number, y: number) => void;
+    onPointDragEnd: (index: number, x: number, y: number) => void;
+    onDeletePoint: (index: number) => void;
+    onMoveStart?: () => void;
+    onMove: (dx: number, dy: number, totalDelta: { dx: number; dy: number }) => void;
+    onMoveEnd: (newPoints: number[], totalDelta: { dx: number; dy: number }) => void;
+}> = ({ zone, editMode, onPointMove, onPointDragEnd, onDeletePoint, onMoveStart, onMove, onMoveEnd }) => {
+    const points: { x: number; y: number }[] = [];
+    for (let i = 0; i < zone.points.length; i += 2) {
+        points.push({ x: zone.points[i], y: zone.points[i + 1] });
+    }
+    const cx = points.reduce((s, p) => s + p.x, 0) / points.length;
+    const cy = points.reduce((s, p) => s + p.y, 0) / points.length;
+
+    const moveHandleDragRef = useRef<{ x: number; y: number } | null>(null);
+    const moveHandleTotalDelta = useRef({ dx: 0, dy: 0 });
+
+    return (
+        <React.Fragment>
             {editMode &&
                 points.map((point, index) => (
                     <Circle
@@ -467,48 +507,45 @@ const ZoneItem: React.FC<{
                         }}
                     />
                 ))}
-            {selected && (
-                <Circle
-                    x={cx}
-                    y={cy}
-                    radius={10}
-                    fill="rgba(96,205,255,0.25)"
-                    stroke="#60cdff"
-                    strokeWidth={1.5}
-                    draggable
-                    onDragStart={(e) => {
-                        moveHandleDragRef.current = { x: e.target.x(), y: e.target.y() };
-                        moveHandleTotalDelta.current = { dx: 0, dy: 0 };
-                        onMoveStart?.();
-                        document.body.style.cursor = 'grabbing';
-                    }}
-                    onDragMove={(e) => {
-                        if (!moveHandleDragRef.current) return;
-                        const dx = e.target.x() - moveHandleDragRef.current.x;
-                        const dy = e.target.y() - moveHandleDragRef.current.y;
-
-                        moveHandleDragRef.current = { x: e.target.x(), y: e.target.y() };
-                        moveHandleTotalDelta.current.dx += dx;
-                        moveHandleTotalDelta.current.dy += dy;
-                        onMove(dx, dy, { ...moveHandleTotalDelta.current });
-                    }}
-                    onDragEnd={() => {
-                        moveHandleDragRef.current = null;
-                        onMoveEnd(zone.points, { ...moveHandleTotalDelta.current });
-                        moveHandleTotalDelta.current = { dx: 0, dy: 0 };
-                        document.body.style.cursor = 'default';
-                    }}
-                    onPointerEnter={() => {
-                        document.body.style.cursor = 'grab';
-                    }}
-                    onPointerLeave={() => {
-                        document.body.style.cursor = 'default';
-                    }}
-                    onClick={(e) => {
-                        e.cancelBubble = true;
-                    }}
-                />
-            )}
+            <Circle
+                x={cx}
+                y={cy}
+                radius={10}
+                fill="rgba(96,205,255,0.25)"
+                stroke="#60cdff"
+                strokeWidth={1.5}
+                draggable
+                onDragStart={(e) => {
+                    moveHandleDragRef.current = { x: e.target.x(), y: e.target.y() };
+                    moveHandleTotalDelta.current = { dx: 0, dy: 0 };
+                    onMoveStart?.();
+                    document.body.style.cursor = 'grabbing';
+                }}
+                onDragMove={(e) => {
+                    if (!moveHandleDragRef.current) return;
+                    const dx = e.target.x() - moveHandleDragRef.current.x;
+                    const dy = e.target.y() - moveHandleDragRef.current.y;
+                    moveHandleDragRef.current = { x: e.target.x(), y: e.target.y() };
+                    moveHandleTotalDelta.current.dx += dx;
+                    moveHandleTotalDelta.current.dy += dy;
+                    onMove(dx, dy, { ...moveHandleTotalDelta.current });
+                }}
+                onDragEnd={() => {
+                    moveHandleDragRef.current = null;
+                    onMoveEnd(zone.points, { ...moveHandleTotalDelta.current });
+                    moveHandleTotalDelta.current = { dx: 0, dy: 0 };
+                    document.body.style.cursor = 'default';
+                }}
+                onPointerEnter={() => {
+                    document.body.style.cursor = 'grab';
+                }}
+                onPointerLeave={() => {
+                    document.body.style.cursor = 'default';
+                }}
+                onClick={(e) => {
+                    e.cancelBubble = true;
+                }}
+            />
         </React.Fragment>
     );
 };
@@ -542,6 +579,7 @@ const NoteItem: React.FC<{
             x={note.x}
             y={note.y}
             draggable={editMode}
+            listening={!note.locked}
             onClick={(e) => {
                 if (e.evt.button === 0) {
                     onSelect(e.evt.shiftKey);
@@ -632,6 +670,7 @@ const LineItem: React.FC<{
                 shadowColor={isMultiSelected ? '#ff9800' : selected ? '#60cdff' : undefined}
                 shadowBlur={isMultiSelected || selected ? 8 : 0}
                 shadowOpacity={0.6}
+                listening={!line.locked}
                 onClick={(e) => {
                     if (e.evt.button === 0) {
                         onSelect(e.evt.shiftKey);
@@ -678,7 +717,7 @@ export const KonvaEngine: React.FC = () => {
     }, []);
 
     const {
-        backgrounds,
+        images,
         pois,
         zones,
         notes,
@@ -695,7 +734,7 @@ export const KonvaEngine: React.FC = () => {
         updatePoi,
         updateNote,
         updateZone,
-        updateBackground,
+        updateImage,
         updateLine,
         setSelectedElement,
         pendingCenter,
@@ -717,9 +756,10 @@ export const KonvaEngine: React.FC = () => {
         imageBrushRotation,
         setImageBrushRotation,
         placeImageBrush,
+        showGrid,
     } = useMapStore(
         useShallow((state) => ({
-            backgrounds: state.backgrounds,
+            images: state.images,
             pois: state.pois,
             zones: state.zones,
             notes: state.notes,
@@ -736,7 +776,7 @@ export const KonvaEngine: React.FC = () => {
             updatePoi: state.updatePoi,
             updateNote: state.updateNote,
             updateZone: state.updateZone,
-            updateBackground: state.updateBackground,
+            updateImage: state.updateImage,
             updateLine: state.updateLine,
             setSelectedElement: state.setSelectedElement,
             pendingCenter: state.pendingCenter,
@@ -758,14 +798,15 @@ export const KonvaEngine: React.FC = () => {
             imageBrushRotation: state.imageBrushRotation,
             setImageBrushRotation: state.setImageBrushRotation,
             placeImageBrush: state.placeImageBrush,
+            showGrid: state.showGrid,
         }))
     );
 
     const [brushPreviewImage] = useImage(imageBrushUrl);
 
-    const bgNodeMap = useRef<Map<string, Konva.Image>>(new Map());
+    const bgNodeMap = useRef<Map<string, Konva.Shape>>(new Map());
     const topBgTrRef = useRef<Konva.Transformer>(null);
-    const handleBgNodeRef = useCallback((bgId: string, node: Konva.Image | null) => {
+    const handleBgNodeRef = useCallback((bgId: string, node: Konva.Shape | null) => {
         if (node) {
             bgNodeMap.current.set(bgId, node);
         } else {
@@ -776,7 +817,7 @@ export const KonvaEngine: React.FC = () => {
     useEffect(() => {
         const tr = topBgTrRef.current;
         if (!tr) return;
-        if (selectedElement?.kind === 'background' && editMode) {
+        if (selectedElement?.kind === 'image' && editMode) {
             const node = bgNodeMap.current.get(selectedElement.id);
             if (node) {
                 tr.nodes([node]);
@@ -790,6 +831,14 @@ export const KonvaEngine: React.FC = () => {
 
     const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
     const [stageScale, setStageScale] = useState(1);
+    const stagePosRef = useRef({ x: 0, y: 0 });
+    const stageScaleRef = useRef(1);
+    useEffect(() => {
+        stagePosRef.current = stagePos;
+    }, [stagePos]);
+    useEffect(() => {
+        stageScaleRef.current = stageScale;
+    }, [stageScale]);
     const [mouseMapPos, setMouseMapPos] = useState<{
         x: number;
         y: number;
@@ -809,7 +858,7 @@ export const KonvaEngine: React.FC = () => {
 
     const allowedIds = useMemo<Set<string> | null>(() => {
         if (!activeZoneFilterId) return null;
-        const { pois: ipois, notes: inotes, backgrounds: ibgs, lines: ilines } = getElementsInZone(activeZoneFilterId);
+        const { pois: ipois, notes: inotes, images: ibgs, lines: ilines } = getElementsInZone(activeZoneFilterId);
         const set = new Set<string>();
         ipois.forEach((p) => set.add(p.id));
         inotes.forEach((n) => set.add(n.id));
@@ -868,7 +917,7 @@ export const KonvaEngine: React.FC = () => {
                 snap[id] = { kind: 'note', data: [note.x, note.y] };
                 continue;
             }
-            const bg = backgrounds.find((b) => b.id === id);
+            const bg = images.find((b) => b.id === id);
             if (bg) {
                 snap[id] = { kind: 'bg', data: [bg.x, bg.y] };
                 continue;
@@ -884,7 +933,7 @@ export const KonvaEngine: React.FC = () => {
             }
         }
         multiDragSnapshot.current = snap;
-    }, [multiSelectedIds, pois, notes, backgrounds, zones, lines]);
+    }, [multiSelectedIds, pois, notes, images, zones, lines]);
 
     const applyMultiDragPreview = React.useCallback(
         (sourceId: string, totalDx: number, totalDy: number) => {
@@ -904,7 +953,7 @@ export const KonvaEngine: React.FC = () => {
                         y: r2(snap.data[1] + totalDy),
                     });
                 } else if (snap.kind === 'bg') {
-                    updateBackground(id, {
+                    updateImage(id, {
                         x: r2(snap.data[0] + totalDx),
                         y: r2(snap.data[1] + totalDy),
                     });
@@ -921,7 +970,7 @@ export const KonvaEngine: React.FC = () => {
                 }
             }
         },
-        [multiSelectedIds, updatePoi, updateNote, updateBackground, updateZone, updateLine]
+        [multiSelectedIds, updatePoi, updateNote, updateImage, updateZone, updateLine]
     );
 
     const commitMultiDragPeers = React.useCallback(
@@ -941,9 +990,9 @@ export const KonvaEngine: React.FC = () => {
                     apiUpdateNote(id, { x: note.x, y: note.y }).catch(console.error);
                     continue;
                 }
-                const bg = backgrounds.find((b) => b.id === id);
+                const bg = images.find((b) => b.id === id);
                 if (bg) {
-                    apiUpdateBackground(id, { x: bg.x, y: bg.y }).catch(console.error);
+                    apiUpdateImage(id, { x: bg.x, y: bg.y }).catch(console.error);
                     continue;
                 }
                 const zone = zones.find((z) => z.id === id);
@@ -962,7 +1011,7 @@ export const KonvaEngine: React.FC = () => {
                 }
             }
         },
-        [multiSelectedIds, pois, notes, backgrounds, zones, lines]
+        [multiSelectedIds, pois, notes, images, zones, lines]
     );
 
     const moveElementById = React.useCallback(
@@ -981,11 +1030,11 @@ export const KonvaEngine: React.FC = () => {
                 apiUpdateNote(id, np).catch(console.error);
                 return;
             }
-            const bg = backgrounds.find((b) => b.id === id);
+            const bg = images.find((b) => b.id === id);
             if (bg) {
                 const np = { x: r2(bg.x + dx), y: r2(bg.y + dy) };
-                updateBackground(id, np);
-                apiUpdateBackground(id, np).catch(console.error);
+                updateImage(id, np);
+                apiUpdateImage(id, np).catch(console.error);
                 return;
             }
             const zone = zones.find((z) => z.id === id);
@@ -1007,7 +1056,7 @@ export const KonvaEngine: React.FC = () => {
                 apiUpdateLine(id, upd).catch(console.error);
             }
         },
-        [pois, notes, backgrounds, zones, lines, updatePoi, updateNote, updateBackground, updateZone, updateLine]
+        [pois, notes, images, zones, lines, updatePoi, updateNote, updateImage, updateZone, updateLine]
     );
 
     useEffect(() => {
@@ -1105,9 +1154,13 @@ export const KonvaEngine: React.FC = () => {
         const toWorld = (clientX: number, clientY: number) => {
             const stage = stageRef.current;
             if (!stage) return null;
-            const tr = stage.getAbsoluteTransform().copy();
-            tr.invert();
-            return tr.point({ x: clientX, y: clientY });
+            const rect = stage.container().getBoundingClientRect();
+            const cx = clientX - rect.left;
+            const cy = clientY - rect.top;
+            return {
+                x: (cx - stagePosRef.current.x) / stageScaleRef.current,
+                y: (cy - stagePosRef.current.y) / stageScaleRef.current,
+            };
         };
 
         const onMouseDown = (e: MouseEvent) => {
@@ -1278,15 +1331,15 @@ export const KonvaEngine: React.FC = () => {
             tryEdge({ x: x0, y: y1 }, { x: x0, y: y0 }, n.id, 'note', n.x, n.y);
         });
 
-        backgrounds.forEach((b) => {
+        images.forEach((b) => {
             const x0 = b.x,
                 y0 = b.y;
             const x1 = b.x + b.width,
                 y1 = b.y + b.height;
-            tryEdge({ x: x0, y: y0 }, { x: x1, y: y0 }, b.id, 'background', b.x, b.y);
-            tryEdge({ x: x1, y: y0 }, { x: x1, y: y1 }, b.id, 'background', b.x, b.y);
-            tryEdge({ x: x1, y: y1 }, { x: x0, y: y1 }, b.id, 'background', b.x, b.y);
-            tryEdge({ x: x0, y: y1 }, { x: x0, y: y0 }, b.id, 'background', b.x, b.y);
+            tryEdge({ x: x0, y: y0 }, { x: x1, y: y0 }, b.id, 'image', b.x, b.y);
+            tryEdge({ x: x1, y: y0 }, { x: x1, y: y1 }, b.id, 'image', b.x, b.y);
+            tryEdge({ x: x1, y: y1 }, { x: x0, y: y1 }, b.id, 'image', b.x, b.y);
+            tryEdge({ x: x0, y: y1 }, { x: x0, y: y0 }, b.id, 'image', b.x, b.y);
         });
 
         return best;
@@ -1469,7 +1522,7 @@ export const KonvaEngine: React.FC = () => {
     const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
         e.evt.preventDefault();
 
-        if (e.evt.shiftKey && creationMode === 'background') {
+        if (e.evt.shiftKey && creationMode === 'image') {
             const step = 5;
             const delta = e.evt.deltaY < 0 ? -step : step;
             setImageBrushRotation(imageBrushRotation + delta);
@@ -1526,7 +1579,7 @@ export const KonvaEngine: React.FC = () => {
         if (creationMode === 'poi' || creationMode === 'note') {
             setTempCreationData({ x: relativePos.x, y: relativePos.y });
             openCreationModal();
-        } else if (creationMode === 'background') {
+        } else if (creationMode === 'image') {
             if (imageBrushAssetId) {
                 void placeImageBrush(relativePos.x, relativePos.y);
             }
@@ -1556,6 +1609,28 @@ export const KonvaEngine: React.FC = () => {
         }
     };
 
+    const GRID_SIZE = 100;
+    const gridLines = useMemo(() => {
+        if (!showGrid) return null;
+        const startX = Math.floor(viewport.left / GRID_SIZE) * GRID_SIZE;
+        const endX = Math.ceil(viewport.right / GRID_SIZE) * GRID_SIZE;
+        const startY = Math.floor(viewport.top / GRID_SIZE) * GRID_SIZE;
+        const endY = Math.ceil(viewport.bottom / GRID_SIZE) * GRID_SIZE;
+        const vLines: React.ReactElement[] = [];
+        const hLines: React.ReactElement[] = [];
+        for (let x = startX; x <= endX; x += GRID_SIZE) {
+            vLines.push(
+                <Line key={`v${x}`} points={[x, startY, x, endY]} stroke="rgba(255,255,255,0.12)" strokeWidth={1 / stageScale} listening={false} perfectDrawEnabled={false} />
+            );
+        }
+        for (let y = startY; y <= endY; y += GRID_SIZE) {
+            hLines.push(
+                <Line key={`h${y}`} points={[startX, y, endX, y]} stroke="rgba(255,255,255,0.12)" strokeWidth={1 / stageScale} listening={false} perfectDrawEnabled={false} />
+            );
+        }
+        return [...vLines, ...hLines];
+    }, [showGrid, viewport, stageScale]);
+
     return (
         <Stage
             width={window.innerWidth}
@@ -1571,83 +1646,20 @@ export const KonvaEngine: React.FC = () => {
             y={stagePos.y}
             ref={stageRef}
         >
-            <Layer listening={creationMode === 'none'}>
-                {backgrounds
-                    .filter(
-                        (bg) =>
-                            !bg.hidden &&
-                            !hiddenGroupElIds.has(bg.id) &&
-                            searchVisible(bg.name ?? '', bg.pinned) &&
-                            (selectedElement?.id === bg.id || multiSelectedIds.includes(bg.id) || rectInViewport(bg.x, bg.y, bg.width, bg.height, viewport))
-                    )
-                    .sort((a, b) => a.zIndex - b.zIndex)
-                    .map((bg) => (
-                        <BackgroundItem
-                            key={bg.id}
-                            background={bg}
-                            editMode={editMode && !bg.locked && !lockedGroupElIds.has(bg.id)}
-                            selected={selectedElement?.id === bg.id}
-                            isMultiSelected={multiSelectedIds.includes(bg.id)}
-                            onNodeRef={handleBgNodeRef}
-                            onSelect={(shiftKey) => {
-                                if (shiftKey) {
-                                    toggleMultiSelect(bg.id);
-                                } else {
-                                    clearMultiSelect();
-                                    if (bg.locked) {
-                                        setSelectedElement(null);
-                                    } else {
-                                        setSelectedElement({ id: bg.id, kind: 'background' });
-                                    }
-                                }
-                            }}
-                            onDragStart={() => {
-                                if (multiSelectedIds.includes(bg.id) && multiSelectedIds.length > 1) {
-                                    captureMultiDragSnapshot();
-                                }
-                            }}
-                            onDragMove={(totalDx, totalDy) => {
-                                if (multiSelectedIds.includes(bg.id) && multiSelectedIds.length > 1) {
-                                    applyMultiDragPreview(bg.id, totalDx, totalDy);
-                                }
-                            }}
-                            onDragEnd={(pos) => {
-                                updateBackground(bg.id, pos);
-                                apiUpdateBackground(bg.id, pos);
-                                if (multiSelectedIds.includes(bg.id) && multiSelectedIds.length > 1) {
-                                    commitMultiDragPeers(bg.id);
-                                }
-                            }}
-                            onResize={(updates) => {
-                                updateBackground(bg.id, updates);
-                                apiUpdateBackground(bg.id, updates);
-                            }}
-                        />
-                    ))}
-            </Layer>
-
-            {!drawingLayer.hidden && (
-                <Layer ref={drawLayerRef} listening={false}>
-                    {drawingLayer.strokes.map((stroke) => (
-                        <Line
-                            key={stroke.id}
-                            points={stroke.points}
-                            stroke={stroke.tool === 'eraser' ? 'rgba(0,0,0,1)' : stroke.color}
-                            strokeWidth={stroke.size}
-                            lineCap="round"
-                            lineJoin="round"
-                            tension={0.4}
-                            globalCompositeOperation={stroke.tool === 'eraser' ? 'destination-out' : 'source-over'}
-                            opacity={stroke.tool === 'marker' ? 0.5 : 1}
-                            listening={false}
-                            perfectDrawEnabled={false}
-                        />
-                    ))}
-                </Layer>
-            )}
+            {showGrid && gridLines && <Layer listening={false}>{gridLines}</Layer>}
+            {/* images are rendered in the unified sorted layer below */}
 
             <Layer listening={creationMode === 'none'}>
                 {[
+                    ...images
+                        .filter(
+                            (bg) =>
+                                !bg.hidden &&
+                                !hiddenGroupElIds.has(bg.id) &&
+                                searchVisible(bg.name ?? '', bg.pinned) &&
+                                (selectedElement?.id === bg.id || multiSelectedIds.includes(bg.id) || rectInViewport(bg.x, bg.y, bg.width, bg.height, viewport))
+                        )
+                        .map((bg) => ({ _kind: 'image' as const, data: bg })),
                     ...lines
                         .filter((line) => {
                             const always = selectedElement?.id === line.id || multiSelectedIds.includes(line.id);
@@ -1700,10 +1712,56 @@ export const KonvaEngine: React.FC = () => {
                 ]
                     .sort((a, b) => a.data.zIndex - b.data.zIndex)
                     .map((el) => {
+                        if (el._kind === 'image') {
+                            const bg = el.data;
+                            return (
+                                <ImageItem
+                                    key={bg.id}
+                                    img={bg}
+                                    editMode={editMode && !bg.locked && !lockedGroupElIds.has(bg.id)}
+                                    selected={selectedElement?.id === bg.id}
+                                    isMultiSelected={multiSelectedIds.includes(bg.id)}
+                                    onNodeRef={handleBgNodeRef}
+                                    onSelect={(shiftKey) => {
+                                        if (shiftKey) {
+                                            toggleMultiSelect(bg.id);
+                                        } else {
+                                            clearMultiSelect();
+                                            if (bg.locked) {
+                                                setSelectedElement(null);
+                                            } else {
+                                                setSelectedElement({ id: bg.id, kind: 'image' });
+                                            }
+                                        }
+                                    }}
+                                    onDragStart={() => {
+                                        if (multiSelectedIds.includes(bg.id) && multiSelectedIds.length > 1) {
+                                            captureMultiDragSnapshot();
+                                        }
+                                    }}
+                                    onDragMove={(totalDx, totalDy) => {
+                                        if (multiSelectedIds.includes(bg.id) && multiSelectedIds.length > 1) {
+                                            applyMultiDragPreview(bg.id, totalDx, totalDy);
+                                        }
+                                    }}
+                                    onDragEnd={(pos) => {
+                                        updateImage(bg.id, pos);
+                                        apiUpdateImage(bg.id, pos);
+                                        if (multiSelectedIds.includes(bg.id) && multiSelectedIds.length > 1) {
+                                            commitMultiDragPeers(bg.id);
+                                        }
+                                    }}
+                                    onResize={(updates) => {
+                                        updateImage(bg.id, updates);
+                                        apiUpdateImage(bg.id, updates);
+                                    }}
+                                />
+                            );
+                        }
                         if (el._kind === 'line') {
                             const line = el.data;
-                            const a = resolveAttachment(line.aAttachedId, line.aAttachedKind, line.x, line.y, pois, zones, notes, backgrounds);
-                            const b = resolveAttachment(line.bAttachedId, line.bAttachedKind, line.bx, line.by, pois, zones, notes, backgrounds);
+                            const a = resolveAttachment(line.aAttachedId, line.aAttachedKind, line.x, line.y, pois, zones, notes, images);
+                            const b = resolveAttachment(line.bAttachedId, line.bAttachedKind, line.bx, line.by, pois, zones, notes, images);
                             return (
                                 <LineItem
                                     key={line.id}
@@ -1759,49 +1817,11 @@ export const KonvaEngine: React.FC = () => {
                                             }
                                         }
                                     }}
-                                    onPointMove={(index, x, y) => {
-                                        const newPoints = [...zone.points];
-                                        newPoints[index * 2] = x;
-                                        newPoints[index * 2 + 1] = y;
-                                        updateZone(zone.id, { points: newPoints });
-                                    }}
-                                    onPointDragEnd={(index, x, y) => {
-                                        const newPoints = [...zone.points];
-                                        newPoints[index * 2] = x;
-                                        newPoints[index * 2 + 1] = y;
-                                        updateZone(zone.id, { points: newPoints });
-                                        apiUpdateZone(zone.id, { points: newPoints });
-                                    }}
-                                    onDeletePoint={(index) => {
-                                        if (zone.points.length / 2 <= 3) return;
-                                        const newPoints = [...zone.points];
-                                        newPoints.splice(index * 2, 2);
-                                        updateZone(zone.id, { points: newPoints });
-                                        apiUpdateZone(zone.id, { points: newPoints });
-                                    }}
                                     onAddPoint={(afterIndex, x, y) => {
                                         const newPoints = [...zone.points];
                                         newPoints.splice((afterIndex + 1) * 2, 0, x, y);
                                         updateZone(zone.id, { points: newPoints });
                                         apiUpdateZone(zone.id, { points: newPoints });
-                                    }}
-                                    onMoveStart={() => {
-                                        if (multiSelectedIds.includes(zone.id) && multiSelectedIds.length > 1) {
-                                            captureMultiDragSnapshot();
-                                        }
-                                    }}
-                                    onMove={(dx, dy, totalDelta) => {
-                                        const newPoints = zone.points.map((v, i) => (i % 2 === 0 ? r2(v + dx) : r2(v + dy)));
-                                        updateZone(zone.id, { points: newPoints });
-                                        if (multiSelectedIds.includes(zone.id) && multiSelectedIds.length > 1) {
-                                            applyMultiDragPreview(zone.id, totalDelta.dx, totalDelta.dy);
-                                        }
-                                    }}
-                                    onMoveEnd={(newPoints) => {
-                                        apiUpdateZone(zone.id, { points: newPoints });
-                                        if (multiSelectedIds.includes(zone.id) && multiSelectedIds.length > 1) {
-                                            commitMultiDragPeers(zone.id);
-                                        }
                                     }}
                                 />
                             );
@@ -1892,6 +1912,26 @@ export const KonvaEngine: React.FC = () => {
                     })}
             </Layer>
 
+            {!drawingLayer.hidden && (
+                <Layer ref={drawLayerRef} listening={false}>
+                    {drawingLayer.strokes.map((stroke) => (
+                        <Line
+                            key={stroke.id}
+                            points={stroke.points}
+                            stroke={stroke.tool === 'eraser' ? 'rgba(0,0,0,1)' : stroke.color}
+                            strokeWidth={stroke.size}
+                            lineCap="round"
+                            lineJoin="round"
+                            tension={0.4}
+                            globalCompositeOperation={stroke.tool === 'eraser' ? 'destination-out' : 'source-over'}
+                            opacity={stroke.tool === 'marker' ? 0.5 : 1}
+                            listening={false}
+                            perfectDrawEnabled={false}
+                        />
+                    ))}
+                </Layer>
+            )}
+
             <Layer>
                 {creationMode === 'line' && draftLinePointA && mouseMapPos && (
                     <Line
@@ -1969,7 +2009,7 @@ export const KonvaEngine: React.FC = () => {
                         listening={false}
                     />
                 )}
-                {mouseMapPos && creationMode === 'background' && (
+                {mouseMapPos && creationMode === 'image' && (
                     <>
                         {brushPreviewImage ? (
                             <KonvaImage
@@ -2011,8 +2051,8 @@ export const KonvaEngine: React.FC = () => {
                     lines
                         .filter((line) => !line.hidden && !line.locked && selectedElement?.id === line.id)
                         .map((line) => {
-                            const a = resolveAttachment(line.aAttachedId, line.aAttachedKind, line.x, line.y, pois, zones, notes, backgrounds);
-                            const b = resolveAttachment(line.bAttachedId, line.bAttachedKind, line.bx, line.by, pois, zones, notes, backgrounds);
+                            const a = resolveAttachment(line.aAttachedId, line.aAttachedKind, line.x, line.y, pois, zones, notes, images);
+                            const b = resolveAttachment(line.bAttachedId, line.bAttachedKind, line.bx, line.by, pois, zones, notes, images);
                             const handleEndpointDragEndFactory = (endpoint: 'a' | 'b') => (e: KonvaEventObject<DragEvent>) => {
                                 const gripOffX = endpoint === 'a' ? aGripX - a.x : bGripX - b.x;
                                 const gripOffY = endpoint === 'a' ? aGripY - a.y : bGripY - b.y;
@@ -2122,10 +2162,64 @@ export const KonvaEngine: React.FC = () => {
                 )}
             </Layer>
 
-            {/* Top-most layer: background transformer – always above every other element */}
+            {/* Zone handles layer – always above every other element, only for the selected zone */}
+            {selectedElement?.kind === 'zone' &&
+                (() => {
+                    const selZone = zones.find((z) => z.id === selectedElement.id);
+                    if (!selZone || selZone.locked || lockedGroupElIds.has(selZone.id)) return null;
+                    const zoneEditMode = editMode && !selZone.locked && !lockedGroupElIds.has(selZone.id);
+                    return (
+                        <Layer>
+                            <ZoneHandles
+                                zone={selZone}
+                                editMode={zoneEditMode}
+                                onPointMove={(index, x, y) => {
+                                    const newPoints = [...selZone.points];
+                                    newPoints[index * 2] = x;
+                                    newPoints[index * 2 + 1] = y;
+                                    updateZone(selZone.id, { points: newPoints });
+                                }}
+                                onPointDragEnd={(index, x, y) => {
+                                    const newPoints = [...selZone.points];
+                                    newPoints[index * 2] = x;
+                                    newPoints[index * 2 + 1] = y;
+                                    updateZone(selZone.id, { points: newPoints });
+                                    apiUpdateZone(selZone.id, { points: newPoints });
+                                }}
+                                onDeletePoint={(index) => {
+                                    if (selZone.points.length / 2 <= 3) return;
+                                    const newPoints = [...selZone.points];
+                                    newPoints.splice(index * 2, 2);
+                                    updateZone(selZone.id, { points: newPoints });
+                                    apiUpdateZone(selZone.id, { points: newPoints });
+                                }}
+                                onMoveStart={() => {
+                                    if (multiSelectedIds.includes(selZone.id) && multiSelectedIds.length > 1) {
+                                        captureMultiDragSnapshot();
+                                    }
+                                }}
+                                onMove={(dx, dy, totalDelta) => {
+                                    const newPoints = selZone.points.map((v, i) => (i % 2 === 0 ? r2(v + dx) : r2(v + dy)));
+                                    updateZone(selZone.id, { points: newPoints });
+                                    if (multiSelectedIds.includes(selZone.id) && multiSelectedIds.length > 1) {
+                                        applyMultiDragPreview(selZone.id, totalDelta.dx, totalDelta.dy);
+                                    }
+                                }}
+                                onMoveEnd={(newPoints) => {
+                                    apiUpdateZone(selZone.id, { points: newPoints });
+                                    if (multiSelectedIds.includes(selZone.id) && multiSelectedIds.length > 1) {
+                                        commitMultiDragPeers(selZone.id);
+                                    }
+                                }}
+                            />
+                        </Layer>
+                    );
+                })()}
+
+            {/* Top-most layer: image transformer – always above every other element */}
             <Layer>
                 {(() => {
-                    const selBg = selectedElement?.kind === 'background' ? backgrounds.find((b) => b.id === selectedElement.id) : undefined;
+                    const selBg = selectedElement?.kind === 'image' ? images.find((b) => b.id === selectedElement.id) : undefined;
                     const lockRatio = selBg?.lockAspectRatio ?? false;
                     return (
                         <Transformer

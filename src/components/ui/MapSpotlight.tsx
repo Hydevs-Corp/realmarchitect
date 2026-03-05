@@ -17,12 +17,12 @@ function centroid(points: number[]): { x: number; y: number } {
 }
 
 export const MapSpotlight: React.FC = () => {
-    const { pois, zones, notes, backgrounds, lines, elementTypes, setSelectedElement, setCenterTarget } = useMapStore(
+    const { pois, zones, notes, images, lines, elementTypes, setSelectedElement, setCenterTarget } = useMapStore(
         useShallow((state) => ({
             pois: state.pois,
             zones: state.zones,
             notes: state.notes,
-            backgrounds: state.backgrounds,
+            images: state.images,
             lines: state.lines,
             elementTypes: state.elementTypes,
             setSelectedElement: state.setSelectedElement,
@@ -64,13 +64,13 @@ export const MapSpotlight: React.FC = () => {
         });
     }, [q, notes]);
 
-    const matchedBackgrounds = useMemo(() => {
-        if (!q) return backgrounds;
-        return backgrounds.filter((bg) => {
+    const matchedImages = useMemo(() => {
+        if (!q) return images;
+        return images.filter((bg) => {
             const txt = `${bg.name ?? ''}`.toLowerCase();
             return txt.includes(q);
         });
-    }, [q, backgrounds]);
+    }, [q, images]);
 
     const matchedLines = useMemo(() => {
         if (!q) return lines;
@@ -80,7 +80,7 @@ export const MapSpotlight: React.FC = () => {
         });
     }, [q, lines]);
 
-    const hasResults = matchedPois.length > 0 || matchedZones.length > 0 || matchedNotes.length > 0 || matchedBackgrounds.length > 0 || matchedLines.length > 0;
+    const hasResults = matchedPois.length > 0 || matchedZones.length > 0 || matchedNotes.length > 0 || matchedImages.length > 0 || matchedLines.length > 0;
 
     const MAX_RESULTS = 10;
     let _remaining = MAX_RESULTS;
@@ -90,12 +90,12 @@ export const MapSpotlight: React.FC = () => {
     _remaining -= showZones.length;
     const showNotes = matchedNotes.slice(0, _remaining);
     _remaining -= showNotes.length;
-    const showBackgrounds = matchedBackgrounds.slice(0, _remaining);
-    _remaining -= showBackgrounds.length;
+    const showImages = matchedImages.slice(0, _remaining);
+    _remaining -= showImages.length;
     const showLines = matchedLines.slice(0, _remaining);
     _remaining -= showLines.length;
 
-    const totalMatched = matchedPois.length + matchedZones.length + matchedNotes.length + matchedBackgrounds.length + matchedLines.length;
+    const totalMatched = matchedPois.length + matchedZones.length + matchedNotes.length + matchedImages.length + matchedLines.length;
     const extraCount = Math.max(0, totalMatched - MAX_RESULTS);
 
     return (
@@ -221,13 +221,13 @@ export const MapSpotlight: React.FC = () => {
                     </Spotlight.ActionsGroup>
                 )}
 
-                {showBackgrounds.length > 0 && (
+                {showImages.length > 0 && (
                     <Spotlight.ActionsGroup label="Images">
-                        {showBackgrounds.map((bg) => (
+                        {showImages.map((bg) => (
                             <Spotlight.Action
                                 key={bg.id}
                                 onClick={() => {
-                                    setSelectedElement({ id: bg.id, kind: 'background' });
+                                    setSelectedElement({ id: bg.id, kind: 'image' });
                                     setCenterTarget({
                                         x: bg.x + bg.width / 2,
                                         y: bg.y + bg.height / 2,

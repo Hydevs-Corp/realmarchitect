@@ -1,22 +1,22 @@
-import type { POI, Zone, TextNote, MapLine, Background, MapGroup } from '../types/map';
+import type { POI, Zone, TextNote, MapLine, MapImage, MapGroup } from '../types/map';
 import type { MapExportData } from './exportMap';
 import {
     createPOI,
     createZone,
     createNote,
     createLine,
-    createBackground,
+    createImage,
     createGroup,
     recreatePOI,
     recreateZone,
     recreateNote,
     recreateLine,
-    recreateBackground,
+    recreateImage,
     deletePOI,
     deleteZone,
     deleteNote,
     deleteLine,
-    deleteBackground,
+    deleteImage,
     deleteGroupDB,
 } from './api';
 
@@ -51,9 +51,9 @@ export interface ImportResult {
     zones: Zone[];
     notes: TextNote[];
     lines: MapLine[];
-    backgrounds: Background[];
+    images: MapImage[];
     groups: MapGroup[];
-    skippedBackgrounds: number;
+    skippedImages: number;
 }
 
 export async function importElements(
@@ -65,7 +65,7 @@ export async function importElements(
         zones: Zone[];
         notes: TextNote[];
         lines: MapLine[];
-        backgrounds: Background[];
+        images: MapImage[];
         groups: MapGroup[];
     }
 ): Promise<ImportResult> {
@@ -75,7 +75,7 @@ export async function importElements(
             ...current.zones.map((z) => deleteZone(z.id)),
             ...current.notes.map((n) => deleteNote(n.id)),
             ...current.lines.map((l) => deleteLine(l.id)),
-            ...current.backgrounds.map((b) => deleteBackground(b.id)),
+            ...current.images.map((b) => deleteImage(b.id)),
             ...current.groups.map((g) => deleteGroupDB(g.id)),
         ]);
     }
@@ -94,9 +94,9 @@ export async function importElements(
         zones: [],
         notes: [],
         lines: [],
-        backgrounds: [],
+        images: [],
         groups: [],
-        skippedBackgrounds: 0,
+        skippedImages: 0,
     };
 
     for (const p of data.pois ?? []) {
@@ -166,22 +166,22 @@ export async function importElements(
         }
     }
 
-    for (const b of data.backgrounds ?? []) {
+    for (const b of data.images ?? []) {
         if (!b.assetId) {
-            result.skippedBackgrounds++;
+            result.skippedImages++;
             continue;
         }
         try {
-            const freshBg: Background = { ...b, id: remapId(b.id), mapId: targetMapId };
+            const freshBg: MapImage = { ...b, id: remapId(b.id), mapId: targetMapId };
             if (keepIds) {
-                await recreateBackground(freshBg);
-                result.backgrounds.push(freshBg);
+                await recreateImage(freshBg);
+                result.images.push(freshBg);
             } else {
-                const created = await createBackground({ ...freshBg}, undefined, b.assetId);
-                result.backgrounds.push(created);
+                const created = await createImage({ ...freshBg }, undefined, b.assetId);
+                result.images.push(created);
             }
         } catch {
-            result.skippedBackgrounds++;
+            result.skippedImages++;
         }
     }
 

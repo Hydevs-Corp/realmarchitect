@@ -9,12 +9,12 @@ import { ImageBrushPanel } from './ImageBrushPanel';
 import { PoiForm } from './PoiForm';
 import { ZoneForm } from './ZoneForm';
 import { NoteForm } from './NoteForm';
-import { BackgroundForm } from './BackgroundForm';
+import { ImageForm } from './ImageForm';
 import { LineForm } from './LineForm';
 import { PoiView } from './PoiView';
 import { ZoneView } from './ZoneView';
 import { NoteView } from './NoteView';
-import { BackgroundView } from './BackgroundView';
+import { ImageView } from './ImageView';
 import { LineView } from './LineView';
 
 export const InfoPanel: React.FC = () => {
@@ -23,7 +23,7 @@ export const InfoPanel: React.FC = () => {
         pois,
         zones,
         notes,
-        backgrounds,
+        images,
         lines,
         editMode,
         setSelectedElement,
@@ -41,7 +41,7 @@ export const InfoPanel: React.FC = () => {
             pois: state.pois,
             zones: state.zones,
             notes: state.notes,
-            backgrounds: state.backgrounds,
+            images: state.images,
             lines: state.lines,
             editMode: state.editMode,
             setSelectedElement: state.setSelectedElement,
@@ -79,8 +79,8 @@ export const InfoPanel: React.FC = () => {
     } else if (kind === 'note') {
         const note = notes.find((n) => n.id === id);
         if (!note) return null;
-    } else if (kind === 'background') {
-        const bg = backgrounds.find((b) => b.id === id);
+    } else if (kind === 'image') {
+        const bg = images.find((b) => b.id === id);
         if (!bg) return null;
         name = bg.name ?? '';
     } else if (kind === 'line') {
@@ -101,7 +101,7 @@ export const InfoPanel: React.FC = () => {
                 ? notes.find((n) => n.id === id)
                 : kind === 'line'
                   ? lines.find((l) => l.id === id)
-                  : backgrounds.find((b) => b.id === id);
+                  : images.find((b) => b.id === id);
 
     const isHidden = !!_currentElement?.hidden;
     const isLocked = !!_currentElement?.locked;
@@ -126,8 +126,8 @@ export const InfoPanel: React.FC = () => {
         } else if (kind === 'note') {
             const note = notes.find((n) => n.id === id);
             if (note) setCenterTarget({ x: note.x, y: note.y });
-        } else if (kind === 'background') {
-            const bg = backgrounds.find((b) => b.id === id);
+        } else if (kind === 'image') {
+            const bg = images.find((b) => b.id === id);
             if (bg) setCenterTarget({ x: bg.x + bg.width / 2, y: bg.y + bg.height / 2 });
         } else if (kind === 'line') {
             const line = lines.find((l) => l.id === id);
@@ -165,7 +165,7 @@ export const InfoPanel: React.FC = () => {
                         {kind === 'poi' && <PoiForm id={id} onDeleted={() => setSelectedElement(null)} />}
                         {kind === 'zone' && <ZoneForm id={id} onDeleted={() => setSelectedElement(null)} />}
                         {kind === 'note' && <NoteForm id={id} onDeleted={() => setSelectedElement(null)} />}
-                        {kind === 'background' && <BackgroundForm id={id} onDeleted={() => setSelectedElement(null)} />}
+                        {kind === 'image' && <ImageForm id={id} onDeleted={() => setSelectedElement(null)} />}
                         {kind === 'line' && <LineForm id={id} onDeleted={() => setSelectedElement(null)} />}
                     </>
                 ) : (
@@ -173,7 +173,7 @@ export const InfoPanel: React.FC = () => {
                         {kind === 'poi' && <PoiView id={id} />}
                         {kind === 'zone' && <ZoneView id={id} />}
                         {kind === 'note' && <NoteView id={id} />}
-                        {kind === 'background' && <BackgroundView id={id} />}
+                        {kind === 'image' && <ImageView id={id} />}
                         {kind === 'line' && <LineView id={id} />}
                     </>
                 )}

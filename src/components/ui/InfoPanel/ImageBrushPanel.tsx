@@ -1,8 +1,9 @@
 import { ActionIcon, Alert, Badge, Button, Divider, Group, NumberInput, Stack, Text, Tooltip, UnstyledButton } from '@mantine/core';
-import { IconInfoCircle, IconLock, IconLockOpen, IconPhoto, IconRotate, IconX } from '@tabler/icons-react';
+import { Dropzone, IMAGE_MIME_TYPE } from '@mantine/dropzone';
+import { IconInfoCircle, IconLock, IconLockOpen, IconPhoto, IconRotate, IconUpload, IconX } from '@tabler/icons-react';
 import React, { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { getFileUrl } from '../../../lib/api';
+import { createAsset, getFileUrl } from '../../../lib/api';
 import { loadAssetHistory, pushAssetHistory, type StoredAsset } from '../../../lib/assetHistory';
 import { mainColor } from '../../../constants';
 import { useMapStore } from '../../../store/useMapStore';
@@ -28,6 +29,36 @@ export const ImageBrushPanel: React.FC = () => {
     const [assetHistory, setAssetHistory] = useState<StoredAsset[]>(() => loadAssetHistory());
     const [showPicker, setShowPicker] = useState(false);
     const [lockScale, setLockScale] = useState(true);
+    const [uploading, setUploading] = useState(false);
+
+    const handleDropFile = async (file: File) => {
+        setUploading(true);
+        try {
+            const dimensions = await new Promise<{ width: number; height: number }>((resolve) => {
+                const url = URL.createObjectURL(file);
+                const img = new Image();
+                img.onload = () => {
+                    resolve({ width: img.naturalWidth, height: img.naturalHeight });
+                    URL.revokeObjectURL(url);
+                };
+                img.onerror = () => {
+                    resolve({ width: imageBrushWidth, height: imageBrushHeight });
+                    URL.revokeObjectURL(url);
+                };
+                img.src = url;
+            });
+            const name = file.name.replace(/\.[^/.]+$/, '');
+            const asset = await createAsset({ name, file, width: dimensions.width, height: dimensions.height });
+            const url = getFileUrl(asset as unknown as RecordModel, asset.file);
+            setImageBrush(asset.id, asset.width ?? dimensions.width, asset.height ?? dimensions.height, url);
+            const updated = pushAssetHistory(asset as unknown as DncWorldmapAssetRecord & RecordModel);
+            setAssetHistory(updated);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setUploading(false);
+        }
+    };
 
     useEffect(() => {
         if (!imageBrushAssetId) {
@@ -122,6 +153,23 @@ export const ImageBrushPanel: React.FC = () => {
                     {imageBrushAssetId ? 'Change image...' : 'Choose image...'}
                 </Button>
 
+                <Dropzone onDrop={(files) => handleDropFile(files[0])} accept={IMAGE_MIME_TYPE} multiple={false} loading={uploading} maxSize={20 * 1024 * 1024} p="sm">
+                    <Group justify="center" gap="xs" style={{ pointerEvents: 'none' }}>
+                        <Dropzone.Accept>
+                            <IconUpload size={20} style={{ color: 'var(--mantine-color-blue-5)' }} />
+                        </Dropzone.Accept>
+                        <Dropzone.Reject>
+                            <IconX size={20} style={{ color: 'var(--mantine-color-red-5)' }} />
+                        </Dropzone.Reject>
+                        <Dropzone.Idle>
+                            <IconPhoto size={20} style={{ color: 'var(--mantine-color-dimmed)' }} />
+                        </Dropzone.Idle>
+                        <Text size="xs" c="dimmed" ta="center">
+                            Drop an image here or click to browse
+                        </Text>
+                    </Group>
+                </Dropzone>
+
                 <Divider />
 
                 <div>
@@ -159,6 +207,46 @@ export const ImageBrushPanel: React.FC = () => {
                             }}
                         />
                     </Group>
+                    {imageBrushWidth === imageBrushHeight && (
+                        <Group mt={'xs'} justify="space-between">
+                            <Button
+                                size="compact-xs"
+                                variant="subtle"
+                                onClick={() => {
+                                    setImageBrush(imageBrushAssetId, 32, 32);
+                                }}
+                            >
+                                32x32
+                            </Button>
+                            <Button
+                                size="compact-xs"
+                                variant="subtle"
+                                onClick={() => {
+                                    setImageBrush(imageBrushAssetId, 64, 64);
+                                }}
+                            >
+                                64x64
+                            </Button>
+                            <Button
+                                size="compact-xs"
+                                variant="subtle"
+                                onClick={() => {
+                                    setImageBrush(imageBrushAssetId, 128, 128);
+                                }}
+                            >
+                                128x128
+                            </Button>
+                            <Button
+                                size="compact-xs"
+                                variant="subtle"
+                                onClick={() => {
+                                    setImageBrush(imageBrushAssetId, 256, 256);
+                                }}
+                            >
+                                256x256
+                            </Button>
+                        </Group>
+                    )}
                 </div>
 
                 <Divider />

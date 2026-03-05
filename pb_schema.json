@@ -869,6 +869,18 @@
                 "type": "bool"
             },
             {
+                "hidden": false,
+                "id": "number_opacity_bg",
+                "max": 1,
+                "min": 0,
+                "name": "opacity",
+                "onlyInt": false,
+                "presentable": false,
+                "required": false,
+                "system": false,
+                "type": "number"
+            },
+            {
                 "cascadeDelete": false,
                 "collectionId": "pbc_users",
                 "hidden": false,
@@ -2328,6 +2340,15 @@
                 "required": false,
                 "system": false,
                 "type": "text"
+            },
+            {
+                "hidden": false,
+                "id": "bool_smooth_zone",
+                "name": "smooth",
+                "presentable": false,
+                "required": false,
+                "system": false,
+                "type": "bool"
             },
             {
                 "cascadeDelete": false,

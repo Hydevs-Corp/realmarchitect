@@ -97,7 +97,7 @@ export const PoiForm: React.FC<PoiFormProps> = ({ id, onDeleted }) => {
             <TextInput label="Name" value={formName} onChange={(e) => setFormName(e.currentTarget.value)} size="sm" />
             <NumberInput label="Size" value={formPoiSize} onChange={(v) => setFormPoiSize(typeof v === 'number' ? v : 10)} min={4} max={100} step={1} size="sm" />
             <Textarea label="Description" value={formDescription} onChange={(e) => setFormDescription(e.currentTarget.value)} size="sm" autosize minRows={3} maxRows={8} />
-            <NumberInput label="Order (z-index)" value={formZIndex} onChange={(v) => setFormZIndex(typeof v === 'number' ? v : 0)} min={0} step={1} size="sm" />
+            <NumberInput label="Order (z-index)" value={formZIndex} onChange={(v) => setFormZIndex(typeof v === 'number' ? v : 0)} min={-100} step={1} size="sm" />
 
             <Divider />
 

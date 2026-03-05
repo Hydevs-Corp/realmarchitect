@@ -30,6 +30,7 @@ export interface Zone extends Omit<MapElement, 'x' | 'y'> {
     description?: string;
     color: string;
     pattern?: string;
+    smooth?: boolean;
 }
 
 export interface TextNote extends MapElement {
@@ -43,19 +44,29 @@ export interface TextNote extends MapElement {
     authorName?: string;
 }
 
-export interface Background extends MapElement {
+export interface MapImage extends MapElement {
     name?: string;
     imageUrl: string;
     width: number;
     height: number;
 
     rotation?: number;
+    opacity?: number;
 
     lockAspectRatio?: boolean;
     assetId?: string;
+
+    tileEnabled?: boolean;
+    tileUrl?: string;
+    tileSizeW?: number;
+    tileSizeH?: number;
+    tileSpacingX?: number;
+    tileSpacingY?: number;
+    tileOffsetX?: number;
+    tileOffsetY?: number;
 }
 
-export type LineAttachKind = 'poi' | 'zone' | 'note' | 'background';
+export type LineAttachKind = 'poi' | 'zone' | 'note' | 'image';
 
 export interface MapLine extends MapElement {
     name?: string;
@@ -142,7 +153,7 @@ export interface HistorySnapshot {
     pois?: POI[];
     zones?: Zone[];
     notes?: TextNote[];
-    backgrounds?: Background[];
+    images?: MapImage[];
     lines?: MapLine[];
     groups?: MapGroup[];
     drawStrokes?: DrawStroke[];

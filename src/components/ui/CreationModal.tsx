@@ -19,7 +19,7 @@ import {
 import { useForm } from '@mantine/form';
 import React, { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { createBackground, createLine, createNote, createPOI, createZone, fetchAssets, getFileUrl } from '../../lib/api';
+import { createImage, createLine, createNote, createPOI, createZone, fetchAssets, getFileUrl } from '../../lib/api';
 import { Hypb } from '@hydevs/hypb';
 import type { DncWorldmapAssetRecord } from '../../types/database';
 import AssetPicker from './AssetPicker';
@@ -28,9 +28,10 @@ import { useMapStore } from '../../store/useMapStore';
 import { ZONE_COLOR_SWATCHES, DEFAULT_ZONE_COLOR, ZONE_PATTERNS } from '../../lib/zoneColors';
 import type { RecordModel } from 'pocketbase';
 import { loadAssetHistory, pushAssetHistory, type StoredAsset } from '../../lib/assetHistory';
+import { loadFormDefaults, savePoiDefaults, saveZoneDefaults, saveNoteDefaults, saveLineDefaults, saveImageDefaults } from '../../lib/formDefaults';
 
 export const CreationModal: React.FC = () => {
-    const { creationMode, isCreationModalOpen, tempCreationData, currentMap, elementTypes, closeCreationModal, addPoi, addZone, addNote, addBackground, addLine } = useMapStore(
+    const { creationMode, isCreationModalOpen, tempCreationData, currentMap, elementTypes, closeCreationModal, addPoi, addZone, addNote, addImage, addLine } = useMapStore(
         useShallow((state) => ({
             creationMode: state.creationMode,
             isCreationModalOpen: state.isCreationModalOpen,
@@ -41,7 +42,7 @@ export const CreationModal: React.FC = () => {
             addPoi: state.addPoi,
             addZone: state.addZone,
             addNote: state.addNote,
-            addBackground: state.addBackground,
+            addImage: state.addImage,
             addLine: state.addLine,
         }))
     );
@@ -77,7 +78,7 @@ export const CreationModal: React.FC = () => {
         poi: 'Create a POI',
         zone: 'Create a Zone',
         note: 'Create a Note',
-        background: 'Add an Image',
+        image: 'Add an Image',
         line: 'Create a Line',
         draw: 'Freehand drawing',
         none: '',
@@ -96,6 +97,7 @@ export const CreationModal: React.FC = () => {
             size: 10,
             zoneColor: DEFAULT_ZONE_COLOR,
             pattern: '',
+            smooth: false,
             content: '',
             isComment: false,
             noteFontSize: 14,
@@ -120,7 +122,31 @@ export const CreationModal: React.FC = () => {
 
     useEffect(() => {
         if (isCreationModalOpen) {
-            form.reset();
+            const defaults = loadFormDefaults();
+            form.setValues({
+                name: '',
+                description: '',
+                content: '',
+                bgName: '',
+                lineName: '',
+                image: null,
+                assetId: '',
+                type: defaults.poi?.type ?? (elementTypes.length > 0 ? elementTypes[0].id : ''),
+                size: defaults.poi?.size ?? 10,
+                zoneColor: defaults.zone?.zoneColor ?? DEFAULT_ZONE_COLOR,
+                pattern: defaults.zone?.pattern ?? '',
+                smooth: defaults.zone?.smooth ?? false,
+                isComment: defaults.note?.isComment ?? false,
+                noteFontSize: defaults.note?.noteFontSize ?? 14,
+                noteBgColor: defaults.note?.noteBgColor ?? '#fff9c4ff',
+                noteWidth: defaults.note?.noteWidth ?? '',
+                width: defaults.image?.width ?? 1000,
+                height: defaults.image?.height ?? 1000,
+                lineColor: defaults.line?.lineColor ?? '#ffffff',
+                lineStrokeWidth: defaults.line?.lineStrokeWidth ?? 2,
+                lineDash: defaults.line?.lineDash ?? 'solid',
+            });
+            setSelectedAsset(null);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isCreationModalOpen]);
@@ -144,6 +170,7 @@ export const CreationModal: React.FC = () => {
                     size: values.size,
                 });
                 addPoi(newPoi);
+                savePoiDefaults({ type: values.type, size: values.size });
             } else if (creationMode === 'zone') {
                 const newZone = await createZone({
                     mapId: currentMap.id,
@@ -153,8 +180,10 @@ export const CreationModal: React.FC = () => {
                     points: tempCreationData.points ?? [],
                     color: values.zoneColor,
                     pattern: values.pattern || undefined,
+                    smooth: values.smooth,
                 });
                 addZone(newZone);
+                saveZoneDefaults({ zoneColor: values.zoneColor, pattern: values.pattern, smooth: values.smooth });
             } else if (creationMode === 'note') {
                 const newNote = await createNote({
                     mapId: currentMap.id,
@@ -168,9 +197,10 @@ export const CreationModal: React.FC = () => {
                     width: values.noteWidth !== '' ? values.noteWidth : undefined,
                 });
                 addNote(newNote);
-            } else if (creationMode === 'background') {
+                saveNoteDefaults({ isComment: values.isComment, noteFontSize: values.noteFontSize, noteBgColor: values.noteBgColor, noteWidth: values.noteWidth });
+            } else if (creationMode === 'image') {
                 if (!values.image && !values.assetId) return;
-                const newBg = await createBackground(
+                const newBg = await createImage(
                     {
                         mapId: currentMap.id,
                         x: tempCreationData.x ?? 0,
@@ -183,13 +213,14 @@ export const CreationModal: React.FC = () => {
                     values.image ?? undefined,
                     values.assetId || undefined
                 );
-                addBackground(newBg);
+                addImage(newBg);
+                saveImageDefaults({ width: values.width, height: values.height });
             } else if (creationMode === 'line') {
                 const newLine = await createLine({
                     mapId: currentMap.id,
                     x: tempCreationData.ax ?? 0,
                     y: tempCreationData.ay ?? 0,
-                    zIndex: 1,
+                    zIndex: 0,
                     bx: tempCreationData.bx ?? 100,
                     by: tempCreationData.by ?? 100,
                     name: values.lineName || undefined,
@@ -198,6 +229,7 @@ export const CreationModal: React.FC = () => {
                     dashPattern: values.lineDash,
                 });
                 addLine(newLine);
+                saveLineDefaults({ lineColor: values.lineColor, lineStrokeWidth: values.lineStrokeWidth, lineDash: values.lineDash });
             }
             closeCreationModal();
         } catch (error) {
@@ -260,6 +292,7 @@ export const CreationModal: React.FC = () => {
                                 {...form.getInputProps('zoneColor')}
                             />
                             <Select label="Fill pattern" data={ZONE_PATTERNS} {...form.getInputProps('pattern')} />
+                            <Switch label="Smooth edges" {...form.getInputProps('smooth', { type: 'checkbox' })} />
                         </>
                     )}
 
@@ -280,7 +313,7 @@ export const CreationModal: React.FC = () => {
                         </>
                     )}
 
-                    {creationMode === 'background' && (
+                    {creationMode === 'image' && (
                         <>
                             <TextInput label="Name" placeholder="Image name (optional)" {...form.getInputProps('bgName')} />
                             <Tabs defaultValue="asset">

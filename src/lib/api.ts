@@ -1,7 +1,7 @@
 import { Hypb } from '@hydevs/hypb';
 import type { RecordModel } from 'pocketbase';
 import type {
-    DncWorldmapBackgroundRecord,
+    DncWorldmapImageRecord,
     DncWorldmapElementTypeRecord,
     DncWorldmapGroupRecord,
     DncWorldmapMapRecord,
@@ -15,7 +15,7 @@ import type {
     DncWorldmapAssetRecord,
     DncWorldmapAssetCategoryRecord,
 } from '../types/database';
-import type { Background, DrawStroke, ElementType, MapData, MapGroup, MapInvite, MapLine, MapMember, POI, TextNote, Zone } from '../types/map';
+import type { MapImage, DrawStroke, ElementType, MapData, MapGroup, MapInvite, MapLine, MapMember, POI, TextNote, Zone } from '../types/map';
 
 export const getFileUrl = (record: RecordModel, filename: string) => {
     const pb = Hypb.pb;
@@ -87,6 +87,7 @@ export async function fetchMapElements(mapId: string) {
         points: r.points,
         color: r.color,
         pattern: r.pattern,
+        smooth: r.smooth ?? false,
     }));
 
     const notesItems = await pb.collection('dnc_worldmap_notes').getFullList<DncWorldmapNoteRecord>({
@@ -110,12 +111,12 @@ export async function fetchMapElements(mapId: string) {
         authorName: r.expand?.author?.name ?? undefined,
     }));
 
-    const bgsItems = await pb.collection('dnc_worldmap_image').getFullList<DncWorldmapBackgroundRecord>({
+    const bgsItems = await pb.collection('dnc_worldmap_image').getFullList<DncWorldmapImageRecord>({
         filter: `map_id = "${mapId}"`,
         expand: 'asset_id',
         batch: 200,
     });
-    const backgrounds: Background[] = bgsItems.map((r) => ({
+    const images: MapImage[] = bgsItems.map((r) => ({
         id: r.id,
         mapId: r.map_id,
         x: r.x,
@@ -129,6 +130,7 @@ export async function fetchMapElements(mapId: string) {
         width: r.width,
         height: r.height,
         rotation: r.rotation ?? 0,
+        opacity: r.opacity ?? 1,
         lockAspectRatio: r.lock_aspect_ratio ?? false,
         assetId: r.asset_id || undefined,
     }));
@@ -165,7 +167,7 @@ export async function fetchMapElements(mapId: string) {
         lines = [];
     }
 
-    return { pois, zones, notes, backgrounds, lines };
+    return { pois, zones, notes, images, lines };
 }
 
 export async function createPOI(poi: Omit<POI, 'id'>): Promise<POI> {
@@ -194,6 +196,7 @@ export async function createZone(zone: Omit<Zone, 'id'>): Promise<Zone> {
         description: zone.description ?? '',
         points: zone.points,
         pattern: zone.pattern ?? '',
+        smooth: zone.smooth ?? false,
     };
     const record = await pb.collection('dnc_worldmap_zones').create<DncWorldmapZoneRecord>(data);
     return { ...zone, id: record.id };
@@ -217,7 +220,7 @@ export async function createNote(note: Omit<TextNote, 'id'>): Promise<TextNote> 
     return { ...note, id: record.id, authorName } as TextNote;
 }
 
-export async function createBackground(bg: Omit<Background, 'id' | 'imageUrl'>, file?: File, assetId?: string): Promise<Background> {
+export async function createImage(bg: Omit<MapImage, 'id' | 'imageUrl'>, file?: File, assetId?: string): Promise<MapImage> {
     const pb = Hypb.pb;
 
     if (file) {
@@ -230,7 +233,7 @@ export async function createBackground(bg: Omit<Background, 'id' | 'imageUrl'>, 
         formData.append('height', bg.height.toString());
         if (bg.name) formData.append('name', bg.name);
         formData.append('image', file);
-        const record = await pb.collection('dnc_worldmap_image').create<DncWorldmapBackgroundRecord>(formData);
+        const record = await pb.collection('dnc_worldmap_image').create<DncWorldmapImageRecord>(formData);
         return {
             ...bg,
             id: record.id,
@@ -248,7 +251,7 @@ export async function createBackground(bg: Omit<Background, 'id' | 'imageUrl'>, 
     };
     if (bg.name) data.name = bg.name;
     if (assetId) data.asset_id = assetId;
-    const record = await pb.collection('dnc_worldmap_image').create<DncWorldmapBackgroundRecord>(data);
+    const record = await pb.collection('dnc_worldmap_image').create<DncWorldmapImageRecord>(data);
 
     let imageUrl = '';
     if (assetId) {
@@ -279,9 +282,7 @@ export async function fetchAssetCategories(): Promise<DncWorldmapAssetCategoryRe
 }
 
 export async function fetchAllAssetTags(): Promise<string[]> {
-    const records = await Hypb.pb
-        .collection('dnc_worldmap_assets')
-        .getFullList<{ tags: string[] }>({ fields: 'tags' });
+    const records = await Hypb.pb.collection('dnc_worldmap_assets').getFullList<{ tags: string[] }>({ fields: 'tags' });
     const set = new Set<string>();
     records.forEach((r) => (r.tags || []).forEach((t) => set.add(t)));
     return Array.from(set).sort();
@@ -314,14 +315,10 @@ export async function fetchAssetsPage(opts: {
     (opts.tags ?? []).forEach((tag) => {
         filters.push(`tags ~ "${tag.replace(/"/g, '')}"`);
     });
-    const result = await pb.collection('dnc_worldmap_assets').getList<DncWorldmapAssetRecord>(
-        opts.page,
-        opts.perPage ?? 24,
-        {
-            filter: filters.join(' && '),
-            sort: ASSET_SORT_MAP[opts.sort ?? 'name-asc'] ?? 'name',
-        }
-    );
+    const result = await pb.collection('dnc_worldmap_assets').getList<DncWorldmapAssetRecord>(opts.page, opts.perPage ?? 24, {
+        filter: filters.join(' && '),
+        sort: ASSET_SORT_MAP[opts.sort ?? 'name-asc'] ?? 'name',
+    });
     return { items: result.items, totalPages: result.totalPages, totalItems: result.totalItems };
 }
 
@@ -413,6 +410,7 @@ export async function updateZone(id: string, updates: Partial<Zone>): Promise<Zo
     if (updates.name !== undefined) data.name = updates.name;
     if (updates.description !== undefined) data.description = updates.description;
     if (updates.pattern !== undefined) data.pattern = updates.pattern;
+    if (updates.smooth !== undefined) data.smooth = updates.smooth;
     if (updates.hidden !== undefined) data.hidden = updates.hidden;
     if (updates.locked !== undefined) data.locked = updates.locked;
     if (updates.pinned !== undefined) data.pinned = updates.pinned;
@@ -458,7 +456,7 @@ export async function deleteNote(id: string): Promise<void> {
     await pb.collection('dnc_worldmap_notes').delete(id);
 }
 
-export async function updateBackground(id: string, updates: Partial<Background>): Promise<void> {
+export async function updateImage(id: string, updates: Partial<MapImage>): Promise<void> {
     const data: Record<string, unknown> = {};
     if (updates.x !== undefined) data.x = updates.x;
     if (updates.y !== undefined) data.y = updates.y;
@@ -467,6 +465,7 @@ export async function updateBackground(id: string, updates: Partial<Background>)
     if (updates.width !== undefined) data.width = updates.width;
     if (updates.height !== undefined) data.height = updates.height;
     if (updates.rotation !== undefined) data.rotation = updates.rotation;
+    if (updates.opacity !== undefined) data.opacity = updates.opacity;
     if (updates.lockAspectRatio !== undefined) data.lock_aspect_ratio = updates.lockAspectRatio;
     if (updates.hidden !== undefined) data.hidden = updates.hidden;
     if (updates.locked !== undefined) data.locked = updates.locked;
@@ -476,7 +475,7 @@ export async function updateBackground(id: string, updates: Partial<Background>)
     await pb.collection('dnc_worldmap_image').update(id, data);
 }
 
-export async function deleteBackground(id: string): Promise<void> {
+export async function deleteImage(id: string): Promise<void> {
     const pb = Hypb.pb;
     await pb.collection('dnc_worldmap_image').delete(id);
 }
@@ -564,6 +563,7 @@ export async function recreateZone(zone: Zone): Promise<void> {
         points: zone.points,
         color: zone.color,
         pattern: zone.pattern ?? '',
+        smooth: zone.smooth ?? false,
         hidden: zone.hidden ?? false,
         locked: zone.locked ?? false,
         pinned: zone.pinned ?? false,
@@ -617,7 +617,7 @@ export async function recreateLine(line: MapLine): Promise<void> {
     await pb.collection('dnc_worldmap_lines').create(data);
 }
 
-export async function recreateBackground(bg: Background): Promise<void> {
+export async function recreateImage(bg: MapImage): Promise<void> {
     const pb = Hypb.pb;
     const data: Record<string, unknown> = {
         id: bg.id,
@@ -628,6 +628,7 @@ export async function recreateBackground(bg: Background): Promise<void> {
         width: bg.width,
         height: bg.height,
         rotation: bg.rotation ?? 0,
+        opacity: bg.opacity ?? 1,
         lock_aspect_ratio: bg.lockAspectRatio ?? false,
         hidden: bg.hidden ?? false,
         locked: bg.locked ?? false,

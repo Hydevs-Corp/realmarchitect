@@ -12,13 +12,13 @@ interface LineFormProps {
 }
 
 export const LineForm: React.FC<LineFormProps> = ({ id, onDeleted }) => {
-    const { lines, pois, zones, notes, backgrounds, updateLine, deleteLine } = useMapStore(
+    const { lines, pois, zones, notes, images, updateLine, deleteLine } = useMapStore(
         useShallow((state) => ({
             lines: state.lines,
             pois: state.pois,
             zones: state.zones,
             notes: state.notes,
-            backgrounds: state.backgrounds,
+            images: state.images,
             updateLine: state.updateLine,
             deleteLine: state.deleteLine,
         }))
@@ -89,7 +89,7 @@ export const LineForm: React.FC<LineFormProps> = ({ id, onDeleted }) => {
             if (!val) return { id: undefined, kind: undefined };
             const sep = val.indexOf(':');
             return {
-                kind: val.slice(0, sep) as 'poi' | 'zone' | 'note' | 'background',
+                kind: val.slice(0, sep) as 'poi' | 'zone' | 'note' | 'image',
                 id: val.slice(sep + 1),
             };
         };
@@ -169,7 +169,7 @@ export const LineForm: React.FC<LineFormProps> = ({ id, onDeleted }) => {
         ...(pois.length > 0 ? [{ group: 'POIs', items: pois.map((p) => ({ value: `poi:${p.id}`, label: p.name || 'Unnamed POI' })) }] : []),
         ...(zones.length > 0 ? [{ group: 'Zones', items: zones.map((z) => ({ value: `zone:${z.id}`, label: z.name || 'Unnamed zone' })) }] : []),
         ...(notes.length > 0 ? [{ group: 'Notes', items: notes.map((n) => ({ value: `note:${n.id}`, label: (n.content ?? '').slice(0, 30) || 'Empty note' })) }] : []),
-        ...(backgrounds.length > 0 ? [{ group: 'Images', items: backgrounds.map((b) => ({ value: `background:${b.id}`, label: b.name || `Image ${b.width}×${b.height}` })) }] : []),
+        ...(images.length > 0 ? [{ group: 'Images', items: images.map((b) => ({ value: `image:${b.id}`, label: b.name || `Image ${b.width}×${b.height}` })) }] : []),
     ];
 
     return (
@@ -311,7 +311,7 @@ export const LineForm: React.FC<LineFormProps> = ({ id, onDeleted }) => {
                 <NumberInput label="Y" value={formLineCy} onChange={(v) => setFormLineCy(typeof v === 'number' ? v : '')} step={1} size="sm" placeholder="Auto" decimalScale={2} />
             </Group>
 
-            <NumberInput label="Order (z-index)" value={formZIndex} onChange={(v) => setFormZIndex(typeof v === 'number' ? v : 0)} min={0} step={1} size="sm" />
+            <NumberInput label="Order (z-index)" value={formZIndex} onChange={(v) => setFormZIndex(typeof v === 'number' ? v : 0)} min={-100} step={1} size="sm" />
 
             <Divider />
 

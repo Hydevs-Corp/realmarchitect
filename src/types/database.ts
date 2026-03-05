@@ -49,6 +49,7 @@ export interface DncWorldmapZoneRecord {
     points: number[];
     color: string;
     pattern?: string;
+    smooth?: boolean;
     last_updated_by?: string;
     created: string;
     updated: string;
@@ -80,7 +81,7 @@ export interface DncWorldmapNoteRecord {
     };
 }
 
-export interface DncWorldmapBackgroundRecord {
+export interface DncWorldmapImageRecord {
     id: string;
     map_id: string;
     x: number;
@@ -95,6 +96,7 @@ export interface DncWorldmapBackgroundRecord {
     asset_id?: string;
 
     rotation?: number;
+    opacity?: number;
 
     lock_aspect_ratio?: boolean;
     width: number;
@@ -273,7 +275,7 @@ export type CollectionRecords = {
     dnc_worldmap_pois: DncWorldmapPoiRecord;
     dnc_worldmap_zones: DncWorldmapZoneRecord;
     dnc_worldmap_notes: DncWorldmapNoteRecord;
-    dnc_worldmap_image: DncWorldmapBackgroundRecord;
+    dnc_worldmap_image: DncWorldmapImageRecord;
     dnc_worldmap_lines: DncWorldmapLineRecord;
     dnc_worldmap_drawing_strokes: DncWorldmapDrawingStrokeRecord;
     dnc_worldmap_groups: DncWorldmapGroupRecord;

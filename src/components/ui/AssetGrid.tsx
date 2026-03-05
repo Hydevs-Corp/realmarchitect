@@ -79,6 +79,11 @@ export default function AssetGrid({ categories, renderActions, refreshKey = 0 }:
             <Group align="flex-end" mb="md" wrap="wrap">
                 <TextInput placeholder="Search by name or tag" value={query} onChange={(e) => setQuery(e.currentTarget.value)} style={{ flex: 2, minWidth: 160 }} />
                 <Select
+                    styles={{
+                        dropdown: {
+                            zIndex: 3200,
+                        },
+                    }}
                     placeholder="Category"
                     data={categories.map((c) => ({ value: c.id, label: c.name }))}
                     value={category}
@@ -91,6 +96,11 @@ export default function AssetGrid({ categories, renderActions, refreshKey = 0 }:
                 />
                 <MultiSelect
                     placeholder="Tags"
+                    styles={{
+                        dropdown: {
+                            zIndex: 3200,
+                        },
+                    }}
                     data={allTags}
                     value={tagFilter}
                     onChange={(v) => {
@@ -101,6 +111,11 @@ export default function AssetGrid({ categories, renderActions, refreshKey = 0 }:
                     style={{ flex: 1, minWidth: 140 }}
                 />
                 <Select
+                    styles={{
+                        dropdown: {
+                            zIndex: 3200,
+                        },
+                    }}
                     placeholder="Order"
                     data={ORDER_OPTIONS}
                     value={order}

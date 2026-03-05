@@ -13,6 +13,7 @@
     "dependencies": {
         "@hydevs/hypb": "^0.0.28",
         "@mantine/core": "^8.3.15",
+        "@mantine/dropzone": "^8.3.15",
         "@mantine/form": "^8.3.15",
         "@mantine/hooks": "^8.3.15",
         "@mantine/modals": "^8.3.15",

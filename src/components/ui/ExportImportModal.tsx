@@ -18,14 +18,14 @@ interface Props {
 }
 
 export const ExportImportModal: React.FC<Props> = ({ opened, onClose }) => {
-    const { currentMap, pois, zones, notes, lines, backgrounds, groups, loadMapData } = useMapStore(
+    const { currentMap, pois, zones, notes, lines, images, groups, loadMapData } = useMapStore(
         useShallow((s) => ({
             currentMap: s.currentMap,
             pois: s.pois,
             zones: s.zones,
             notes: s.notes,
             lines: s.lines,
-            backgrounds: s.backgrounds,
+            images: s.images,
             groups: s.groups,
             loadMapData: s.loadMapData,
         }))
@@ -51,16 +51,16 @@ export const ExportImportModal: React.FC<Props> = ({ opened, onClose }) => {
         try {
             switch (exportFormat) {
                 case 'json':
-                    exportJSON(currentMap, pois, zones, notes, lines, backgrounds, groups);
+                    exportJSON(currentMap, pois, zones, notes, lines, images, groups);
                     break;
                 case 'png':
-                    await exportPNG(exportScope, currentMap, pois, zones, notes, lines, backgrounds);
+                    await exportPNG(exportScope, currentMap, pois, zones, notes, lines, images);
                     break;
                 case 'svg':
-                    exportSVG(currentMap, pois, zones, notes, lines, backgrounds);
+                    exportSVG(currentMap, pois, zones, notes, lines, images);
                     break;
                 case 'pdf':
-                    await exportPDF(exportScope, currentMap, pois, zones, notes, lines, backgrounds);
+                    await exportPDF(exportScope, currentMap, pois, zones, notes, lines, images);
                     break;
             }
             notifications.show({ message: 'Export successful', color: 'green', icon: <IconCheck /> });
@@ -93,14 +93,14 @@ export const ExportImportModal: React.FC<Props> = ({ opened, onClose }) => {
         if (!parsedData || !currentMap) return;
         setImporting(true);
         try {
-            const result = await importElements(currentMap.id, parsedData, importMode, { pois, zones, notes, lines, backgrounds, groups });
+            const result = await importElements(currentMap.id, parsedData, importMode, { pois, zones, notes, lines, images, groups });
 
             await loadMapData(currentMap.id);
 
-            const total = result.pois.length + result.zones.length + result.notes.length + result.lines.length + result.backgrounds.length;
-            const skipped = result.skippedBackgrounds;
+            const total = result.pois.length + result.zones.length + result.notes.length + result.lines.length + result.images.length;
+            const skipped = result.skippedImages;
             notifications.show({
-                message: `Imported ${total} element${total !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} background${skipped > 1 ? 's' : ''} skipped — no asset)` : ''}`,
+                message: `Imported ${total} element${total !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} image${skipped > 1 ? 's' : ''} skipped — no asset)` : ''}`,
                 color: 'green',
                 icon: <IconCheck />,
             });
@@ -203,7 +203,7 @@ export const ExportImportModal: React.FC<Props> = ({ opened, onClose }) => {
                     <Divider />
                     <Box bg="gray.0" p="xs" style={{ borderRadius: 4 }}>
                         <Text size="xs" c="dimmed">
-                            {pois.length} POIs · {zones.length} zones · {notes.length} notes · {lines.length} lines · {backgrounds.length} images
+                            {pois.length} POIs · {zones.length} zones · {notes.length} notes · {lines.length} lines · {images.length} images
                         </Text>
                     </Box>
 
@@ -275,9 +275,9 @@ export const ExportImportModal: React.FC<Props> = ({ opened, onClose }) => {
                                             {parsedData.lines.length} lines
                                         </Badge>
                                     )}
-                                    {parsedData.backgrounds?.length > 0 && (
+                                    {parsedData.images?.length > 0 && (
                                         <Badge size="xs" variant="light" color="violet">
-                                            {parsedData.backgrounds.length} images
+                                            {parsedData.images.length} images
                                         </Badge>
                                     )}
                                 </Group>

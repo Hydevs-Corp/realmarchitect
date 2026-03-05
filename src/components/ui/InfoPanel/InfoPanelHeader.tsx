@@ -58,7 +58,7 @@ export const InfoPanelHeader: React.FC<InfoPanelHeaderProps> = ({
                 />
             )}
             <Text fw={600} size="sm" lineClamp={1} style={{ minWidth: 0 }}>
-                {kind === 'note' ? 'Note' : kind === 'background' ? name || 'Image' : name || '—'}
+                {kind === 'note' ? 'Note' : kind === 'image' ? name || 'Image' : name || '—'}
             </Text>
             <Badge size="xs" variant="light" color="gray" style={{ flexShrink: 0 }}>
                 {kindLabel}

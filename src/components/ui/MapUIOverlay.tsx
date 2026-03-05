@@ -1,7 +1,7 @@
 import { ActionIcon, Affix, Group, Kbd, Paper, Text, Tooltip } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { spotlight } from '@mantine/spotlight';
-import { IconEdit, IconLayoutList, IconLine, IconMapPin, IconNote, IconPencil, IconPhoto, IconPolygon, IconSearch, IconX } from '@tabler/icons-react';
+import { IconEdit, IconGrid3x3, IconLayoutList, IconLine, IconMapPin, IconNote, IconPencil, IconPhoto, IconPolygon, IconSearch, IconX } from '@tabler/icons-react';
 import React, { useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useMapStore } from '../../store/useMapStore';
@@ -31,7 +31,7 @@ const CREATION_ACTIONS = [
         shortcut: 'N / 3',
     },
     {
-        mode: 'background' as const,
+        mode: 'image' as const,
         icon: <IconPhoto size={18} />,
         label: 'Add Image',
         shortcut: 'B / 4',
@@ -68,10 +68,12 @@ export const MapUIOverlay: React.FC = () => {
         deletePoi,
         deleteZone,
         deleteNote,
-        deleteBackground,
+        deleteImage,
         deleteLine,
         deleteMultiple,
         multiSelectedIds,
+        showGrid,
+        toggleGrid,
     } = useMapStore(
         useShallow((state) => ({
             editMode: state.editMode,
@@ -90,10 +92,12 @@ export const MapUIOverlay: React.FC = () => {
             deletePoi: state.deletePoi,
             deleteZone: state.deleteZone,
             deleteNote: state.deleteNote,
-            deleteBackground: state.deleteBackground,
+            deleteImage: state.deleteImage,
             deleteLine: state.deleteLine,
             deleteMultiple: state.deleteMultiple,
             multiSelectedIds: state.multiSelectedIds,
+            showGrid: state.showGrid,
+            toggleGrid: state.toggleGrid,
         }))
     );
 
@@ -107,10 +111,10 @@ export const MapUIOverlay: React.FC = () => {
         }
     };
 
-    const handleSetBackground = () => {
-        const next = creationMode === 'background' ? 'none' : 'background';
+    const handleSetImage = () => {
+        const next = creationMode === 'image' ? 'none' : 'image';
         setCreationMode(next);
-        if (next === 'background') {
+        if (next === 'image') {
             setSelectedElement({ id: 'image-brush', kind: 'image-brush' });
         } else {
             setSelectedElement(null);
@@ -162,6 +166,7 @@ export const MapUIOverlay: React.FC = () => {
                         modals.openConfirmModal({
                             title: `Delete ${ids.length} elements`,
                             centered: true,
+                            zIndex: 3000,
                             children: (
                                 <Text size="sm">
                                     Are you sure you want to delete <strong>{ids.length} elements</strong>? This action can be undone with Ctrl+Z.
@@ -179,7 +184,7 @@ export const MapUIOverlay: React.FC = () => {
                         poi: 'POI',
                         zone: 'Zone',
                         note: 'Note',
-                        background: 'Image',
+                        image: 'Image',
                         line: 'Line',
                     };
                     const label = kindLabels[selectedElement.kind] ?? 'element';
@@ -187,6 +192,7 @@ export const MapUIOverlay: React.FC = () => {
                     const kind = selectedElement.kind;
                     modals.openConfirmModal({
                         title: `Delete ${label}`,
+                        zIndex: 3000,
                         centered: true,
                         children: (
                             <Text size="sm">
@@ -199,7 +205,7 @@ export const MapUIOverlay: React.FC = () => {
                             if (kind === 'poi') deletePoi(id);
                             else if (kind === 'zone') deleteZone(id);
                             else if (kind === 'note') deleteNote(id);
-                            else if (kind === 'background') deleteBackground(id);
+                            else if (kind === 'image') deleteImage(id);
                             else if (kind === 'line') deleteLine(id);
                         },
                     });
@@ -208,7 +214,7 @@ export const MapUIOverlay: React.FC = () => {
                 case 'escape':
                     if (creationMode !== 'none') {
                         setCreationMode('none');
-                        if (creationMode === 'draw' || creationMode === 'background') setSelectedElement(null);
+                        if (creationMode === 'draw' || creationMode === 'image') setSelectedElement(null);
                     } else if (selectedElement) {
                         setSelectedElement(null);
                     }
@@ -231,9 +237,9 @@ export const MapUIOverlay: React.FC = () => {
                 case 'b':
                 case '4':
                     if (editMode) {
-                        const next = creationMode === 'background' ? 'none' : 'background';
+                        const next = creationMode === 'image' ? 'none' : 'image';
                         setCreationMode(next);
-                        if (next === 'background') {
+                        if (next === 'image') {
                             setSelectedElement({ id: 'image-brush', kind: 'image-brush' });
                         } else {
                             setSelectedElement(null);
@@ -280,7 +286,7 @@ export const MapUIOverlay: React.FC = () => {
         deletePoi,
         deleteZone,
         deleteNote,
-        deleteBackground,
+        deleteImage,
         deleteLine,
         multiSelectedIds,
         deleteMultiple,
@@ -382,8 +388,8 @@ export const MapUIOverlay: React.FC = () => {
                                             onClick={() =>
                                                 mode === 'draw'
                                                     ? handleSetDraw()
-                                                    : mode === 'background'
-                                                      ? handleSetBackground()
+                                                    : mode === 'image'
+                                                      ? handleSetImage()
                                                       : setCreationMode(creationMode === mode ? 'none' : mode)
                                             }
                                         >
@@ -391,6 +397,19 @@ export const MapUIOverlay: React.FC = () => {
                                         </ActionIcon>
                                     </Tooltip>
                                 ))}
+                            <Tooltip
+                                label={
+                                    <Group gap={4}>
+                                        <IconGrid3x3 size={12} />
+                                        <Text size="xs">Toggle grid</Text>
+                                    </Group>
+                                }
+                                position="top"
+                            >
+                                <ActionIcon size="lg" variant={showGrid ? 'filled' : 'default'} color={showGrid ? mainColor : undefined} onClick={toggleGrid}>
+                                    <IconGrid3x3 size={18} />
+                                </ActionIcon>
+                            </Tooltip>
                             {creationMode !== 'none' && (
                                 <Tooltip label="Cancel (Escape)" position="top">
                                     <ActionIcon
@@ -417,7 +436,7 @@ export const MapUIOverlay: React.FC = () => {
                                       ? 'Click to place point A · then click to place point B'
                                       : creationMode === 'draw'
                                         ? 'Draw freehand · Adjust options in the details panel'
-                                        : creationMode === 'background'
+                                        : creationMode === 'image'
                                           ? 'Select an image in the panel · then click to place'
                                           : 'Click on the map to place'}
                                 {' · '}

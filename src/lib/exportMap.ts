@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import type Konva from 'konva';
-import type { MapData, POI, Zone, TextNote, MapLine, Background, MapGroup } from '../types/map';
+import type { MapData, POI, Zone, TextNote, MapLine, MapImage, MapGroup } from '../types/map';
 import { getStage } from './stageRef';
 
 export interface MapExportData {
@@ -11,7 +11,7 @@ export interface MapExportData {
     zones: Zone[];
     notes: TextNote[];
     lines: MapLine[];
-    backgrounds: Background[];
+    images: MapImage[];
     groups: MapGroup[];
 }
 
@@ -37,7 +37,7 @@ interface WorldBounds {
     maxY: number;
 }
 
-function computeWorldBounds(pois: POI[], zones: Zone[], notes: TextNote[], lines: MapLine[], backgrounds: Background[]): WorldBounds | null {
+function computeWorldBounds(pois: POI[], zones: Zone[], notes: TextNote[], lines: MapLine[], images: MapImage[]): WorldBounds | null {
     let minX = Infinity,
         minY = Infinity,
         maxX = -Infinity,
@@ -69,7 +69,7 @@ function computeWorldBounds(pois: POI[], zones: Zone[], notes: TextNote[], lines
         expand(l.bx, l.by);
         if (l.cx !== undefined && l.cy !== undefined) expand(l.cx, l.cy);
     }
-    for (const b of backgrounds) {
+    for (const b of images) {
         expand(b.x, b.y);
         expand(b.x + b.width, b.y + b.height);
     }
@@ -79,7 +79,7 @@ function computeWorldBounds(pois: POI[], zones: Zone[], notes: TextNote[], lines
     return { minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad };
 }
 
-export function exportJSON(mapData: MapData, pois: POI[], zones: Zone[], notes: TextNote[], lines: MapLine[], backgrounds: Background[], groups: MapGroup[]): void {
+export function exportJSON(mapData: MapData, pois: POI[], zones: Zone[], notes: TextNote[], lines: MapLine[], images: MapImage[], groups: MapGroup[]): void {
     const data: MapExportData = {
         version: 1,
         exportedAt: new Date().toISOString(),
@@ -88,7 +88,7 @@ export function exportJSON(mapData: MapData, pois: POI[], zones: Zone[], notes: 
         zones,
         notes,
         lines,
-        backgrounds,
+        images,
         groups,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -169,8 +169,8 @@ async function withResolvedImages<T>(stage: Konva.Stage, callback: () => T): Pro
     return result;
 }
 
-function applyFullExtentTransform(stage: Konva.Stage, pois: POI[], zones: Zone[], notes: TextNote[], lines: MapLine[], backgrounds: Background[]): (() => void) | null {
-    const bounds = computeWorldBounds(pois, zones, notes, lines, backgrounds);
+function applyFullExtentTransform(stage: Konva.Stage, pois: POI[], zones: Zone[], notes: TextNote[], lines: MapLine[], images: MapImage[]): (() => void) | null {
+    const bounds = computeWorldBounds(pois, zones, notes, lines, images);
     if (!bounds) return null;
 
     const savedScaleX = stage.scaleX();
@@ -197,21 +197,13 @@ function applyFullExtentTransform(stage: Konva.Stage, pois: POI[], zones: Zone[]
     };
 }
 
-export async function exportPNG(
-    scope: 'view' | 'full',
-    mapData: MapData,
-    pois: POI[],
-    zones: Zone[],
-    notes: TextNote[],
-    lines: MapLine[],
-    backgrounds: Background[]
-): Promise<void> {
+export async function exportPNG(scope: 'view' | 'full', mapData: MapData, pois: POI[], zones: Zone[], notes: TextNote[], lines: MapLine[], images: MapImage[]): Promise<void> {
     const stage = getStage();
     if (!stage) return;
 
     let restore: (() => void) | null = null;
     if (scope === 'full') {
-        restore = applyFullExtentTransform(stage, pois, zones, notes, lines, backgrounds);
+        restore = applyFullExtentTransform(stage, pois, zones, notes, lines, images);
     }
 
     const dataUrl = await withResolvedImages(stage, () => stage.toDataURL({ mimeType: 'image/png', pixelRatio: 2 }));
@@ -290,8 +282,8 @@ function hexToRgb(hex: string): [number, number, number] {
     return [isNaN(r) ? 128 : r, isNaN(g) ? 128 : g, isNaN(b) ? 128 : b];
 }
 
-export function exportSVG(mapData: MapData, pois: POI[], zones: Zone[], notes: TextNote[], lines: MapLine[], backgrounds: Background[]): void {
-    const bounds = computeWorldBounds(pois, zones, notes, lines, backgrounds);
+export function exportSVG(mapData: MapData, pois: POI[], zones: Zone[], notes: TextNote[], lines: MapLine[], images: MapImage[]): void {
+    const bounds = computeWorldBounds(pois, zones, notes, lines, images);
     const vbX = bounds?.minX ?? 0;
     const vbY = bounds?.minY ?? 0;
     const vbW = bounds ? bounds.maxX - bounds.minX : 1000;
@@ -304,7 +296,7 @@ export function exportSVG(mapData: MapData, pois: POI[], zones: Zone[], notes: T
 
     const byZ = (a: { zIndex: number }, b: { zIndex: number }) => a.zIndex - b.zIndex;
 
-    for (const bg of [...backgrounds].sort(byZ)) {
+    for (const bg of [...images].sort(byZ)) {
         if (bg.hidden) continue;
 
         const rot = bg.rotation ? ` transform="rotate(${bg.rotation} ${bg.x} ${bg.y})"` : '';
@@ -392,21 +384,13 @@ export function exportSVG(mapData: MapData, pois: POI[], zones: Zone[], notes: T
     downloadBlob(blob, `${safeName(mapData.name)}_export.svg`);
 }
 
-export async function exportPDF(
-    scope: 'view' | 'full',
-    mapData: MapData,
-    pois: POI[],
-    zones: Zone[],
-    notes: TextNote[],
-    lines: MapLine[],
-    backgrounds: Background[]
-): Promise<void> {
+export async function exportPDF(scope: 'view' | 'full', mapData: MapData, pois: POI[], zones: Zone[], notes: TextNote[], lines: MapLine[], images: MapImage[]): Promise<void> {
     const stage = getStage();
     if (!stage) return;
 
     let restore: (() => void) | null = null;
     if (scope === 'full') {
-        restore = applyFullExtentTransform(stage, pois, zones, notes, lines, backgrounds);
+        restore = applyFullExtentTransform(stage, pois, zones, notes, lines, images);
     }
     const dataUrl = await withResolvedImages(stage, () => stage.toDataURL({ mimeType: 'image/png', pixelRatio: 1.5 }));
     restore?.();

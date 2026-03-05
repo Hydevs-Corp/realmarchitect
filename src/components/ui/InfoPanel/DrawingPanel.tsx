@@ -1,10 +1,25 @@
-import { ActionIcon, Badge, Button, ColorInput, Divider, Group, Slider, Stack, Text, Tooltip } from '@mantine/core';
-import { IconArrowBackUp, IconEraser, IconEye, IconEyeOff, IconLock, IconLockOpen, IconPencil, IconPencilPause, IconTrashX, IconX } from '@tabler/icons-react';
+import { ActionIcon, Badge, Box, Button, ColorInput, ColorSwatch, Divider, Group, ScrollArea, Slider, Stack, Text, Tooltip } from '@mantine/core';
+import {
+    IconArrowBackUp,
+    IconArrowForwardUp,
+    IconEraser,
+    IconEye,
+    IconEyeOff,
+    IconLock,
+    IconLockOpen,
+    IconPencil,
+    IconPencilPause,
+    IconTrash,
+    IconTrashX,
+    IconX,
+} from '@tabler/icons-react';
 import React from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { mainColor } from '../../../constants';
 import { useMapStore } from '../../../store/useMapStore';
 import { HEADER_STYLE, PANEL_CONTAINER_STYLE } from './types';
+
+const TOOL_LABEL: Record<string, string> = { pen: 'Pen', marker: 'Marker', eraser: 'Eraser' };
 
 export const DrawingPanel: React.FC = () => {
     const {
@@ -14,9 +29,12 @@ export const DrawingPanel: React.FC = () => {
         setDrawingLayerTool,
         setDrawingLayerColor,
         setDrawingLayerSize,
-        undo,
-        undoStack,
+        undoDraw,
+        redoDraw,
+        drawUndoStack,
+        drawRedoStack,
         clearDrawStrokes,
+        deleteDrawStroke,
         setSelectedElement,
     } = useMapStore(
         useShallow((state) => ({
@@ -26,22 +44,27 @@ export const DrawingPanel: React.FC = () => {
             setDrawingLayerTool: state.setDrawingLayerTool,
             setDrawingLayerColor: state.setDrawingLayerColor,
             setDrawingLayerSize: state.setDrawingLayerSize,
-            undo: state.undo,
-            undoStack: state.undoStack,
+            undoDraw: state.undoDraw,
+            redoDraw: state.redoDraw,
+            drawUndoStack: state.drawUndoStack,
+            drawRedoStack: state.drawRedoStack,
             clearDrawStrokes: state.clearDrawStrokes,
+            deleteDrawStroke: state.deleteDrawStroke,
             setSelectedElement: state.setSelectedElement,
         }))
     );
+
+    const reversedStrokes = [...drawingLayer.strokes].reverse();
 
     return (
         <div style={PANEL_CONTAINER_STYLE}>
             <Group px="md" py="sm" justify="space-between" align="center" style={HEADER_STYLE}>
                 <Group gap="xs" align="center">
                     <Text fw={600} size="sm">
-                        Couche de dessin
+                        Drawing Layer
                     </Text>
                     <Badge size="xs" variant="light" color={mainColor}>
-                        Dessin
+                        {drawingLayer.strokes.length} stroke{drawingLayer.strokes.length !== 1 ? 's' : ''}
                     </Badge>
                 </Group>
                 <Group gap={2}>
@@ -129,14 +152,69 @@ export const DrawingPanel: React.FC = () => {
 
                 <Divider />
 
-                <Stack gap="xs">
-                    <Button variant="light" color={mainColor} leftSection={<IconArrowBackUp />} size="xs" disabled={undoStack.length === 0} onClick={undo}>
-                        Undo ({undoStack.length})
-                    </Button>
-                    <Button variant="light" color="red" leftSection={<IconTrashX />} size="xs" disabled={drawingLayer.strokes.length === 0} onClick={clearDrawStrokes}>
+                <Group gap="xs">
+                    <Tooltip label="Undo last stroke" withArrow>
+                        <ActionIcon variant="light" color={mainColor} size="sm" disabled={drawUndoStack.length === 0} onClick={undoDraw}>
+                            <IconArrowBackUp size={14} />
+                        </ActionIcon>
+                    </Tooltip>
+                    <Tooltip label="Redo" withArrow>
+                        <ActionIcon variant="light" color={mainColor} size="sm" disabled={drawRedoStack.length === 0} onClick={redoDraw}>
+                            <IconArrowForwardUp size={14} />
+                        </ActionIcon>
+                    </Tooltip>
+                    <Text size="xs" c="dimmed" style={{ flex: 1 }}>
+                        {drawUndoStack.length} action{drawUndoStack.length !== 1 ? 's' : ''}
+                    </Text>
+                    <Button variant="light" color="red" leftSection={<IconTrashX size={13} />} size="xs" disabled={drawingLayer.strokes.length === 0} onClick={clearDrawStrokes}>
                         Clear all
                     </Button>
-                </Stack>
+                </Group>
+
+                <Divider
+                    label={
+                        <Text size="xs" c="dimmed">
+                            {drawingLayer.strokes.length} trait{drawingLayer.strokes.length !== 1 ? 's' : ''}
+                        </Text>
+                    }
+                    labelPosition="left"
+                />
+
+                {drawingLayer.strokes.length === 0 && (
+                    <Text size="xs" c="dimmed" ta="center">
+                        No strokes yet
+                    </Text>
+                )}
+
+                <ScrollArea.Autosize mah={320} type="auto">
+                    <Stack gap={4}>
+                        {reversedStrokes.map((stroke) => (
+                            <Box
+                                key={stroke.id}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    padding: '4px 6px',
+                                    borderRadius: 6,
+                                    background: 'var(--mantine-color-dark-6)',
+                                }}
+                            >
+                                {stroke.tool === 'eraser' ? (
+                                    <IconEraser size={14} style={{ color: 'var(--mantine-color-orange-4)', flexShrink: 0 }} />
+                                ) : (
+                                    <ColorSwatch color={stroke.color} size={14} style={{ flexShrink: 0, opacity: stroke.tool === 'marker' ? 0.5 : 1 }} />
+                                )}
+                                <Text size="xs" style={{ flex: 1, minWidth: 0 }} truncate>
+                                    {TOOL_LABEL[stroke.tool] ?? stroke.tool} — {stroke.size}px
+                                </Text>
+                                <ActionIcon size="xs" variant="subtle" color="red" onClick={() => deleteDrawStroke(stroke.id)}>
+                                    <IconTrash size={11} />
+                                </ActionIcon>
+                            </Box>
+                        ))}
+                    </Stack>
+                </ScrollArea.Autosize>
             </Stack>
         </div>
     );

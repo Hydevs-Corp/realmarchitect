@@ -227,7 +227,7 @@ type ElementDisplayInfo = {
     label: string;
     color?: string;
     icon: React.ReactNode;
-    kind: 'poi' | 'zone' | 'note' | 'background' | 'line';
+    kind: 'poi' | 'zone' | 'note' | 'image' | 'line';
     focusX: number;
     focusY: number;
     hidden: boolean;
@@ -245,8 +245,8 @@ interface GroupRowProps {
     onDelete: (id: string) => void;
     onSetElementGroup: (elementId: string, groupId: string | null) => void;
     onSelectGroup: () => void;
-    onSelectElement: (id: string, kind: 'poi' | 'zone' | 'note' | 'background' | 'line') => void;
-    onFocusElement: (x: number, y: number, id: string, kind: 'poi' | 'zone' | 'note' | 'background' | 'line') => void;
+    onSelectElement: (id: string, kind: 'poi' | 'zone' | 'note' | 'image' | 'line') => void;
+    onFocusElement: (x: number, y: number, id: string, kind: 'poi' | 'zone' | 'note' | 'image' | 'line') => void;
     onToggleHide: (id: string) => void;
     onHideOthers: (id: string) => void;
     onHideOthersGroup: () => void;
@@ -414,7 +414,7 @@ function GroupRow({
 export function ElementsPanel() {
     const {
         isElementsPanelOpen,
-        backgrounds,
+        images,
         zones,
         pois,
         notes,
@@ -442,7 +442,7 @@ export function ElementsPanel() {
     } = useMapStore(
         useShallow((s) => ({
             isElementsPanelOpen: s.isElementsPanelOpen,
-            backgrounds: s.backgrounds,
+            images: s.images,
             zones: s.zones,
             pois: s.pois,
             notes: s.notes,
@@ -473,11 +473,11 @@ export function ElementsPanel() {
     const [newGroupInput, setNewGroupInput] = useState(false);
     const [newGroupName, setNewGroupName] = useState('');
     const [activeTab, setActiveTab] = useState<'groups' | 'elements'>('elements');
-    const [typeFilters, setTypeFilters] = useState<Set<'background' | 'zone' | 'poi' | 'note' | 'line'>>(new Set());
+    const [typeFilters, setTypeFilters] = useState<Set<'image' | 'zone' | 'poi' | 'note' | 'line'>>(new Set());
     const [stateFilters, setStateFilters] = useState<Set<'hidden' | 'visible' | 'locked' | 'pinned'>>(new Set());
     const [searchAffectsMap, setSearchAffectsMap] = useState(false);
 
-    const toggleTypeFilter = (kind: 'background' | 'zone' | 'poi' | 'note' | 'line') =>
+    const toggleTypeFilter = (kind: 'image' | 'zone' | 'poi' | 'note' | 'line') =>
         setTypeFilters((prev) => {
             const next = new Set(prev);
             if (next.has(kind)) next.delete(kind);
@@ -524,7 +524,7 @@ export function ElementsPanel() {
     );
 
     const anyVisible =
-        backgrounds.some((b) => !b.hidden) || zones.some((z) => !z.hidden) || pois.some((p) => !p.hidden) || notes.some((n) => !n.hidden) || lines.some((l) => !l.hidden);
+        images.some((b) => !b.hidden) || zones.some((z) => !z.hidden) || pois.some((p) => !p.hidden) || notes.some((n) => !n.hidden) || lines.some((l) => !l.hidden);
 
     const hideOthers = (keepId: string) => {
         setAllElementsHidden(true);
@@ -537,11 +537,11 @@ export function ElementsPanel() {
     }
 
     const elementDisplayMap = new Map<string, ElementDisplayInfo>();
-    for (const bg of backgrounds) {
+    for (const bg of images) {
         elementDisplayMap.set(bg.id, {
             label: bg.name || `Image (${bg.width}×${bg.height})`,
             icon: <IconMap size={12} />,
-            kind: 'background',
+            kind: 'image',
             focusX: bg.x + bg.width / 2,
             focusY: bg.y + bg.height / 2,
             hidden: !!bg.hidden,
@@ -603,7 +603,7 @@ export function ElementsPanel() {
         });
     }
 
-    function focusElement(x: number, y: number, id: string, kind: 'poi' | 'zone' | 'note' | 'background' | 'line') {
+    function focusElement(x: number, y: number, id: string, kind: 'poi' | 'zone' | 'note' | 'image' | 'line') {
         setSelectedElement({ id, kind });
         setCenterTarget({ x, y });
     }
@@ -618,7 +618,7 @@ export function ElementsPanel() {
         setNewGroupInput(false);
     };
 
-    const filteredBackgrounds = backgrounds.filter((bg) => searchMatch(bg.name || `Image (${bg.width}×${bg.height})`, bg.pinned));
+    const filteredImages = images.filter((bg) => searchMatch(bg.name || `Image (${bg.width}×${bg.height})`, bg.pinned));
     const filteredZones = zones.filter((zone) => searchMatch(zone.name || 'Unnamed zone', zone.pinned));
     const filteredPois = pois.filter((poi) => searchMatch(poi.name || 'Unnamed POI', poi.pinned));
     const filteredNotes = notes.filter((note) => searchMatch(note.content.slice(0, 40) || 'Empty note', note.pinned));
@@ -626,7 +626,7 @@ export function ElementsPanel() {
 
     type UnifiedItem = {
         id: string;
-        kind: 'background' | 'zone' | 'poi' | 'note' | 'line';
+        kind: 'image' | 'zone' | 'poi' | 'note' | 'line';
         label: string;
         color?: string;
         icon: React.ReactNode;
@@ -639,10 +639,10 @@ export function ElementsPanel() {
 
     const allFilteredItems: UnifiedItem[] = useMemo(() => {
         const allFilteredItems: UnifiedItem[] = [];
-        for (const bg of filteredBackgrounds)
+        for (const bg of filteredImages)
             allFilteredItems.push({
                 id: bg.id,
-                kind: 'background',
+                kind: 'image',
                 label: bg.name || `Image (${bg.width}×${bg.height})`,
                 icon: <IconMap size={12} />,
                 focusX: bg.x + bg.width / 2,
@@ -706,7 +706,7 @@ export function ElementsPanel() {
                 pinned: !!line.pinned,
             });
         return allFilteredItems;
-    }, [filteredBackgrounds, filteredZones, filteredPois, elementTypes, filteredNotes, filteredLines]);
+    }, [filteredImages, filteredZones, filteredPois, elementTypes, filteredNotes, filteredLines]);
 
     const unifiedItems = allFilteredItems.filter((it) => {
         if (typeFilters.size > 0 && !typeFilters.has(it.kind)) return false;
@@ -727,7 +727,7 @@ export function ElementsPanel() {
         for (const p of pois) currentMap.set(p.id, { hidden: !!p.hidden, pinned: !!p.pinned });
         for (const z of zones) currentMap.set(z.id, { hidden: !!z.hidden, pinned: !!z.pinned });
         for (const n of notes) currentMap.set(n.id, { hidden: !!n.hidden, pinned: !!n.pinned });
-        for (const b of backgrounds) currentMap.set(b.id, { hidden: !!b.hidden, pinned: !!b.pinned });
+        for (const b of images) currentMap.set(b.id, { hidden: !!b.hidden, pinned: !!b.pinned });
         for (const l of lines) currentMap.set(l.id, { hidden: !!l.hidden, pinned: !!l.pinned });
 
         for (const el of allFilteredItems) {
@@ -749,7 +749,7 @@ export function ElementsPanel() {
             searchHiddenIds.current.delete(id);
             setElementHidden(id, false);
         }
-    }, [searchQuery, searchAffectsMap, pois, zones, notes, backgrounds, lines, allFilteredItems, searchMatch, setElementHidden]);
+    }, [searchQuery, searchAffectsMap, pois, zones, notes, images, lines, allFilteredItems, searchMatch, setElementHidden]);
 
     if (!isElementsPanelOpen) return null;
 
@@ -926,12 +926,12 @@ export function ElementsPanel() {
                         <Stack gap={6} p={8} style={{ height: '100%' }}>
                             <Group justify="space-between" wrap="nowrap">
                                 <Group gap={4} wrap="wrap">
-                                    <Tooltip label={`Images (${backgrounds.length})`}>
+                                    <Tooltip label={`Images (${images.length})`}>
                                         <ActionIcon
                                             size="sm"
-                                            variant={typeFilters.has('background') ? 'light' : 'subtle'}
-                                            color={typeFilters.has('background') ? 'violet' : 'gray'}
-                                            onClick={() => toggleTypeFilter('background')}
+                                            variant={typeFilters.has('image') ? 'light' : 'subtle'}
+                                            color={typeFilters.has('image') ? 'violet' : 'gray'}
+                                            onClick={() => toggleTypeFilter('image')}
                                         >
                                             <IconMap />
                                         </ActionIcon>
@@ -1033,7 +1033,7 @@ export function ElementsPanel() {
                                     itemHeight={34}
                                     height={listHeight}
                                     renderItem={(it: UnifiedItem) => {
-                                        const elKind = it.kind as 'background' | 'zone' | 'poi' | 'note' | 'line';
+                                        const elKind = it.kind as 'image' | 'zone' | 'poi' | 'note' | 'line';
                                         const extraAction =
                                             groups.length > 0 ? (
                                                 <GroupPickerMenu
