@@ -98,6 +98,7 @@ export function useMapRealtime(mapId: string | undefined) {
                 width: raw.width,
                 height: raw.height,
                 rotation: raw.rotation ?? 0,
+                opacity: raw.opacity ?? 1,
                 lockAspectRatio: raw.lock_aspect_ratio ?? false,
                 assetId: raw.asset_id || undefined,
             };

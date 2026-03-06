@@ -231,6 +231,7 @@ export async function createImage(bg: Omit<MapImage, 'id' | 'imageUrl'>, file?: 
         formData.append('z_index', bg.zIndex.toString());
         formData.append('width', bg.width.toString());
         formData.append('height', bg.height.toString());
+        formData.append('opacity', (bg.opacity ?? 1).toString());
         if (bg.name) formData.append('name', bg.name);
         formData.append('image', file);
         const record = await pb.collection('dnc_worldmap_image').create<DncWorldmapImageRecord>(formData);
@@ -248,6 +249,7 @@ export async function createImage(bg: Omit<MapImage, 'id' | 'imageUrl'>, file?: 
         z_index: bg.zIndex,
         width: bg.width,
         height: bg.height,
+        opacity: bg.opacity ?? 1,
     };
     if (bg.name) data.name = bg.name;
     if (assetId) data.asset_id = assetId;
